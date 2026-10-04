@@ -24,8 +24,7 @@ Codex skips plugin hooks until you trust them in `/hooks`. Claude Code without G
 
 ## Docs
 
-- [How the gate works](docs/how-the-gate-works.md): what it denies, the hook config, the skill-loaded marker
-- [Codex](docs/codex.md): why Codex needs no separate config
+- [How the gate works](docs/how-the-gate-works.md): what it denies, the hook config, why Codex needs no separate config, the skill-loaded marker
 - [Vendored skill](docs/vendored-skill.md): how the skill is pinned, verified, and bumped
 - [Testing](docs/testing.md): the Pester suite and the OS, harness, and model coverage table
 

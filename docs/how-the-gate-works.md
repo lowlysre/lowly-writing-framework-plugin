@@ -10,6 +10,7 @@ One script pair holds the matching logic: `hooks/gate.sh` for bash and `hooks/ga
 | `powershell` | Copilot CLI on Windows; the command ends in `; exit $LASTEXITCODE` |
 | `commandWindows` | Codex on Windows |
 
+- Codex reads the same `.claude-plugin/` tree, so it needs no separate config. Its [plugin docs](https://developers.openai.com/plugins/build/plugins) say OpenAI "also accepts legacy and Claude-compatible manifests" and that Codex discovers `hooks/hooks.json` by default. Codex skips plugin hooks until the user trusts them in `/hooks`.
 - The matcher is `Bash|(.*(__|-))?(<tools>)`. MCP tool names arrive prefixed with `__` on Claude Code and `-` on Copilot CLI.
 - Copilot CLI's [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) accepts PascalCase event names (`PreToolUse`) in the Claude Code shape, with Claude matcher semantics and `snake_case` payload fields. That is why one file serves both. Its native `camelCase` flat format (`version: 1`, `preToolUse`) is not used.
 - A deny exits 2, writes the reason to stderr, and prints `permissionDecision` JSON to stdout in both the top-level and `hookSpecificOutput` shapes. Copilot CLI reads stdout, Claude Code and Codex read stderr.
