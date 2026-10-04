@@ -7,20 +7,29 @@ Bundles the [lowly-writing-framework](https://github.com/lowlysre/lowly-writing-
 
 ## Install
 
-Claude Code and Copilot CLI:
+### Claude Code
 
 ```
 /plugin marketplace add lowlysre/lowly-writing-framework-plugin
 /plugin install lowly-writing-framework@lowly-writing-framework
 ```
 
-Codex CLI:
+Without Git for Windows, Claude Code can't run the bash hooks. Copy [examples/claude-code-windows-settings.json](examples/claude-code-windows-settings.json) into your user settings and replace `<plugin path>` with the installed plugin directory.
+
+### Copilot CLI
+
+```
+/plugin marketplace add lowlysre/lowly-writing-framework-plugin
+/plugin install lowly-writing-framework@lowly-writing-framework
+```
+
+### Codex CLI
 
 ```
 codex plugin marketplace add lowlysre/lowly-writing-framework-plugin
 ```
 
-Codex skips plugin hooks until you trust them in `/hooks`. Claude Code without Git for Windows can't run the bash hooks. Copy [examples/claude-code-windows-settings.json](examples/claude-code-windows-settings.json) into your user settings and replace `<plugin path>` with the installed plugin directory.
+Codex skips plugin hooks until you trust them in `/hooks`.
 
 ## Vendored skill
 
