@@ -1,5 +1,7 @@
 # How the gate works
 
+The gate covers `create_pull_request`, `update_pull_request`, `add_pr_review_comment`, `edit_pr_review_comment`, `reply_to_comment`, and `reply_and_resolve_review_thread`, plus `gh pr|issue|discussion create|edit|comment|review` run through a shell tool. It denies once per session with exit code 2, then allows the retry. An internal failure in the gate exits 0, so a broken gate never blocks work.
+
 One script pair holds the matching logic: `hooks/gate.sh` for bash and `hooks/gate.ps1` for Windows PowerShell 5.1 and PowerShell 7. Neither needs `jq`. One hook config serves all three harnesses.
 
 | Key in `hooks/hooks.json` | Read by |
