@@ -8,20 +8,22 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\"",
             "bash": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\"",
-            "powershell": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1\"; exit $LASTEXITCODE"
+            "powershell": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1\"; exit $LASTEXITCODE",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}\\hooks\\gate.ps1\""
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Skill|skill",
+        "matcher": "Skill|skill|Bash",
         "hooks": [
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\"",
             "bash": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.sh\"",
-            "powershell": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1\"; exit $LASTEXITCODE"
+            "powershell": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/gate.ps1\"; exit $LASTEXITCODE",
+            "commandWindows": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}\\hooks\\gate.ps1\""
           }
         ]
       }

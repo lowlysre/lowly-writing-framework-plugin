@@ -8,7 +8,6 @@ BeforeAll {
     $script:stateDir = Join-Path ([IO.Path]::GetTempPath()) 'lowly-writing-framework'
     $script:psExe = if ($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop') { 'powershell' } else { 'pwsh' }
     $script:claude = (Get-Content (Join-Path $script:root 'hooks/hooks.json') -Raw | ConvertFrom-Json).hooks
-    $script:codex = (Get-Content (Join-Path $script:root 'hooks/codex-hooks.json') -Raw | ConvertFrom-Json).hooks
     $script:writeTools = 'create_pull_request', 'update_pull_request', 'add_pr_review_comment', 'edit_pr_review_comment', 'reply_to_comment', 'reply_and_resolve_review_thread'
 
     # The harness substitutes the plugin root textually before it runs the command string.
@@ -31,18 +30,10 @@ BeforeAll {
 }
 
 Describe 'plugin packaging' {
-    It 'ships valid manifests that agree on name and version' {
+    It 'ships a marketplace entry that agrees with the plugin name' {
         $p = Get-Content (Join-Path $script:root '.claude-plugin/plugin.json') -Raw | ConvertFrom-Json
-        $c = Get-Content (Join-Path $script:root '.codex-plugin/plugin.json') -Raw | ConvertFrom-Json
         $m = Get-Content (Join-Path $script:root '.claude-plugin/marketplace.json') -Raw | ConvertFrom-Json
-        $c.name | Should -Be $p.name
-        $c.version | Should -Be $p.version
         $m.plugins[0].name | Should -Be $p.name
-    }
-    It 'points the Codex manifest at hooks and skills that exist' {
-        $c = Get-Content (Join-Path $script:root '.codex-plugin/plugin.json') -Raw | ConvertFrom-Json
-        Test-Path (Join-Path $script:root $c.hooks) | Should -BeTrue
-        Test-Path (Join-Path $script:root $c.skills) | Should -BeTrue
     }
     It 'vendors the skill with a lockfile entry' {
         Test-Path (Join-Path $script:root 'skills/lowly-writing-framework/SKILL.md') | Should -BeTrue
@@ -55,8 +46,6 @@ Describe 'hooks configs' {
     It 'declares a command hook for <name> with the gate script' -ForEach @(
         @{ name = 'claude PreToolUse'; entry = { $script:claude.PreToolUse[0] } }
         @{ name = 'claude PostToolUse'; entry = { $script:claude.PostToolUse[0] } }
-        @{ name = 'codex PreToolUse'; entry = { $script:codex.PreToolUse[0] } }
-        @{ name = 'codex PostToolUse'; entry = { $script:codex.PostToolUse[0] } }
     ) {
         $e = & $entry
         $e.matcher | Should -Not -BeNullOrEmpty
@@ -70,9 +59,7 @@ Describe 'hooks configs' {
     }
     It 'uses the plugin root placeholder in every command' {
         $h = $script:claude.PreToolUse[0].hooks[0]
-        foreach ($f in 'command', 'bash', 'powershell') { $h.$f | Should -Match '\$\{CLAUDE_PLUGIN_ROOT\}' }
-        $x = $script:codex.PreToolUse[0].hooks[0]
-        foreach ($f in 'command', 'commandWindows') { $x.$f | Should -Match '\$\{PLUGIN_ROOT\}' }
+        foreach ($f in 'command', 'bash', 'powershell', 'commandWindows') { $h.$f | Should -Match '\$\{CLAUDE_PLUGIN_ROOT\}' }
     }
     It 'forwards the gate exit code from the powershell command' {
         # Copilot runs this through `pwsh -c`, which reports 1 for any failed native command and would lose exit code 2.
@@ -96,17 +83,11 @@ Describe 'matchers' {
     ) {
         $tool | Should -Not -Match "^(?:$($script:claude.PreToolUse[0].matcher))`$"
     }
-    It 'uses the same PreToolUse matcher for Codex' {
-        $script:codex.PreToolUse[0].matcher | Should -Be $script:claude.PreToolUse[0].matcher
+    It 'PostToolUse matches the skill tool and, for Codex, Bash' -ForEach @(@{ tool = 'Skill' }, @{ tool = 'skill' }, @{ tool = 'Bash' }) {
+        $tool | Should -Match "^(?:$($script:claude.PostToolUse[0].matcher))`$"
     }
-    It 'PostToolUse matches the skill tool in Claude Code and Copilot' {
-        $m = $script:claude.PostToolUse[0].matcher
-        'Skill' | Should -Match "^(?:$m)`$"
-        'skill' | Should -Match "^(?:$m)`$"
-        'Bash' | Should -Not -Match "^(?:$m)`$"
-    }
-    It 'PostToolUse matches Bash in Codex, where the skill loads through a file read' {
-        'Bash' | Should -Match "^(?:$($script:codex.PostToolUse[0].matcher))`$"
+    It 'PostToolUse ignores <tool>' -ForEach @(@{ tool = 'Edit' }, @{ tool = 'Read' }) {
+        $tool | Should -Not -Match "^(?:$($script:claude.PostToolUse[0].matcher))`$"
     }
     It 'lists the same write tools as both gates' {
         $inMatcher = ([regex]::Match($script:claude.PreToolUse[0].matcher, '\((create_pull_request[^)]*)\)').Groups[1].Value -split '\|') | Sort-Object
@@ -125,7 +106,7 @@ Describe 'hook commands as the harness runs them' {
     It 'runs the <name> command: deny, then allow after the skill loads' -ForEach @(
         @{ name = 'claude command'; pre = { $script:claude.PreToolUse[0].hooks[0].command }; post = { $script:claude.PostToolUse[0].hooks[0].command }; tool = 'skill'; input = @{ skill = 'lowly-writing-framework' } }
         @{ name = 'claude bash'; pre = { $script:claude.PreToolUse[0].hooks[0].bash }; post = { $script:claude.PostToolUse[0].hooks[0].bash }; tool = 'skill'; input = @{ skill = 'lowly-writing-framework' } }
-        @{ name = 'codex command'; pre = { $script:codex.PreToolUse[0].hooks[0].command }; post = { $script:codex.PostToolUse[0].hooks[0].command }; tool = 'Bash'; input = @{ command = 'cat skills/lowly-writing-framework/SKILL.md' } }
+        @{ name = 'codex file read'; pre = { $script:claude.PreToolUse[0].hooks[0].command }; post = { $script:claude.PostToolUse[0].hooks[0].command }; tool = 'Bash'; input = @{ command = 'cat skills/lowly-writing-framework/SKILL.md' } }
     ) -Skip:(-not $script:hasBash) {
         $cmd = & $pre
         $deny = Invoke-Hook 'bash' $cmd (New-Pre $script:sid 'Bash' @{ command = 'gh pr create --title t' })
@@ -137,7 +118,7 @@ Describe 'hook commands as the harness runs them' {
     }
     It 'runs the <name> command on Windows and keeps exit code 2' -ForEach @(
         @{ name = 'claude powershell'; shell = 'powershell'; cmd = { $script:claude.PreToolUse[0].hooks[0].powershell } }
-        @{ name = 'codex commandWindows'; shell = 'cmd'; cmd = { $script:codex.PreToolUse[0].hooks[0].commandWindows } }
+        @{ name = 'codex commandWindows'; shell = 'cmd'; cmd = { $script:claude.PreToolUse[0].hooks[0].commandWindows } }
     ) -Skip:(-not $script:isWin) {
         $c = & $cmd
         $deny = Invoke-Hook $shell $c (New-Pre $script:sid 'Bash' @{ command = 'gh pr create --title t' })

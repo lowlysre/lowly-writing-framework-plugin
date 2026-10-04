@@ -9,7 +9,7 @@ The gate covers `create_pull_request`, `update_pull_request`, `add_pr_review_com
 
 ## Install
 
-Claude Code and Copilot CLI:
+Claude Code, Copilot CLI, and Codex CLI read the same `.claude-plugin/` tree. Claude Code and Copilot CLI:
 
 ```
 /plugin marketplace add lowlysre/lowly-writing-framework-plugin
@@ -63,12 +63,13 @@ The plugin's own bash hooks fail to start in that setup. Claude Code reports a n
 
 ## How the gate works
 
-One script pair holds the matching logic: `hooks/gate.sh` for bash and `hooks/gate.ps1` for Windows PowerShell 5.1 and PowerShell 7. Neither needs `jq`. The hook config differs per harness because each harness reads a different format.
+One script pair holds the matching logic: `hooks/gate.sh` for bash and `hooks/gate.ps1` for Windows PowerShell 5.1 and PowerShell 7. Neither needs `jq`. One hook config serves all three harnesses.
 
-| File | Harness | Notes |
-| --- | --- | --- |
-| `hooks/hooks.json` | Claude Code, Copilot CLI | `bash` and `powershell` keys; the PowerShell command ends in `; exit $LASTEXITCODE` |
-| `hooks/codex-hooks.json` | Codex CLI | `command` and `commandWindows`; referenced from `.codex-plugin/plugin.json` |
+| Key in `hooks/hooks.json` | Read by |
+| --- | --- |
+| `command`, `bash` | Claude Code (`command`), Copilot CLI on Linux and macOS (`bash`), Codex on Linux and macOS (`command`) |
+| `powershell` | Copilot CLI on Windows; the command ends in `; exit $LASTEXITCODE` |
+| `commandWindows` | Codex on Windows |
 
 - The matcher is `Bash|(.*(__|-))?(<tools>)`. MCP tool names arrive prefixed with `__` on Claude Code and `-` on Copilot CLI.
 - Copilot CLI's [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) accepts PascalCase event names (`PreToolUse`) in the Claude Code shape, with Claude matcher semantics and `snake_case` payload fields. That is why one file serves both. Its native `camelCase` flat format (`version: 1`, `preToolUse`) is not used.
@@ -80,13 +81,13 @@ One script pair holds the matching logic: `hooks/gate.sh` for bash and `hooks/ga
 The gate records the load as an empty file, `<temp dir>/lowly-writing-framework/<session_id>.loaded`. All three harnesses send `session_id` in the hook payload, so the file needs no harness state and works the same under bash and PowerShell.
 
 - Claude Code and Copilot CLI load a skill through a `Skill` or `skill` tool call, which a `PostToolUse` hook records.
-- Codex has no skill tool. The model reads `SKILL.md` through its shell tool, so on Codex the gate records a `Bash` call that mentions `lowly-writing-framework/SKILL.md`.
+- Codex has no skill tool. The model reads `SKILL.md` through its shell tool, so on Codex the shared `PostToolUse` matcher also covers `Bash`, and the gate records a call that mentions `lowly-writing-framework/SKILL.md`.
 
 ## Codex
 
-Codex plugins can carry hooks. The [plugin docs](https://developers.openai.com/plugins/build/plugins#bundled-mcp-servers-and-lifecycle-hooks) say "When your plugin is enabled, the Codex runtime can load lifecycle hooks from your plugin alongside user, project, and managed hooks." The [hooks docs](https://learn.chatgpt.com/docs/hooks) give the `PreToolUse` payload (`session_id`, `tool_name`, `tool_input`, with `tool_input.command` for `Bash`) and the deny signal ("You can also use exit code `2` and write the blocking reason to `stderr`").
+Codex reads this plugin from the `.claude-plugin/` tree, so there is no separate Codex manifest or hooks file. The [plugin docs](https://developers.openai.com/plugins/build/plugins) say "OpenAI also accepts legacy and Claude-compatible manifests", list `.claude-plugin/marketplace.json` as a legacy-compatible marketplace, and say Codex discovers `hooks/hooks.json` by default when the manifest doesn't define `hooks`. Codex also expands `CLAUDE_PLUGIN_ROOT`, so the Claude Code placeholder works unchanged. The [hooks docs](https://learn.chatgpt.com/docs/hooks) give the `PreToolUse` payload (`session_id`, `tool_name`, `tool_input`, with `tool_input.command` for `Bash`) and the deny signal ("You can also use exit code `2` and write the blocking reason to `stderr`").
 
-The gate is therefore enforced on Codex, subject to the trust review above. The gap is that no live Codex run exists yet, see the coverage table.
+The gate is therefore enforced on Codex, subject to the trust review above. No live Codex run exists yet, see the coverage table.
 
 ## Vendored skill
 
@@ -124,5 +125,5 @@ CI runs them on Ubuntu, macOS, and Windows. On Windows the gate runs under Windo
 
 - No live run exists for this plugin on any harness, OS, or model.
 - The Claude Code `shell: powershell` configuration, the `.claude-plugin/marketplace.json` install path, and Claude's handling of the extra `bash` and `powershell` keys are untested.
-- The Codex install through `.claude-plugin/marketplace.json`, its manifest choice between `.codex-plugin/plugin.json` and `.claude-plugin/plugin.json`, the `${PLUGIN_ROOT}` substitution, and how `commandWindows` is launched are untested. CI runs the `commandWindows` string through `cmd /c`.
+- The Codex install through `.claude-plugin/marketplace.json`, its manifest choice, the `CLAUDE_PLUGIN_ROOT` expansion, its handling of the extra `bash` and `powershell` keys, and how `commandWindows` is launched are untested. The docs describe Claude-compatible manifests as accepted without naming `.claude-plugin/plugin.json` explicitly. CI runs the `commandWindows` string through `cmd /c`.
 - `claude plugin validate` passes the manifests and does not validate hooks.
