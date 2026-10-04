@@ -11,6 +11,7 @@ CI runs them on `ubuntu-slim`, `macos-latest`, and `windows-latest`. On Windows 
 Two more CI jobs sit beside the Pester matrix:
 
 - `validate-manifests` runs `claude plugin validate` on `.claude-plugin/marketplace.json` and `.claude-plugin/plugin.json`.
+- `are-we-good` rolls the other jobs into one status check, so branch protection needs a single required check.
 - `vendored-skill` restores the skill from `skills-lock.json` and diffs it against `skills/`.
 
 ## What the tests cover
