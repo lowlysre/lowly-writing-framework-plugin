@@ -1,15 +1,13 @@
 # lowly-writing-framework-plugin
 
-A plugin that bundles the [lowly-writing-framework](https://github.com/lowlysre/lowly-writing-framework) skill and gates GitHub writes on it. The gate denies GitHub write tools and `gh` write commands until the skill has loaded in the session.
-
-The gate covers `create_pull_request`, `update_pull_request`, `add_pr_review_comment`, `edit_pr_review_comment`, `reply_to_comment`, and `reply_and_resolve_review_thread`, plus `gh pr|issue|discussion create|edit|comment|review` run through a shell tool. It denies once per session with exit code 2, then allows the retry. An internal failure in the gate exits 0, so a broken gate never blocks work.
+Bundles the [lowly-writing-framework](https://github.com/lowlysre/lowly-writing-framework) skill and denies GitHub write tools and `gh` write commands until the skill has loaded in the session. Works on Claude Code, Copilot CLI, and Codex CLI from one `.claude-plugin/` tree.
 
 > [!IMPORTANT]
 > Install the plugin or run `npx skills add lowlysre/lowly-writing-framework`, not both. Both register the skill, and the agent then sees it twice.
 
 ## Install
 
-Claude Code, Copilot CLI, and Codex CLI read the same `.claude-plugin/` tree. Claude Code and Copilot CLI:
+Claude Code and Copilot CLI:
 
 ```
 /plugin marketplace add lowlysre/lowly-writing-framework-plugin
@@ -22,110 +20,14 @@ Codex CLI:
 codex plugin marketplace add lowlysre/lowly-writing-framework-plugin
 ```
 
-Codex skips plugin hooks until you review and trust them. Open `/hooks` after install and trust the gate, or Codex loads the skill and enforces nothing.
+Codex skips plugin hooks until you trust them in `/hooks`. Claude Code without Git for Windows needs `shell: powershell`, see [Claude Code on Windows](docs/claude-code-windows.md).
 
-### Claude Code on Windows without Git for Windows
+## Docs
 
-Claude Code runs hook commands through Git Bash and has no bash fallback without it. Set `shell: powershell` on a user-level hook that runs `gate.ps1` from the installed plugin path, and the gate runs under Windows PowerShell 5.1:
+- [How the gate works](docs/how-the-gate-works.md): what it denies, the hook config, the skill-loaded marker
+- [Codex](docs/codex.md): why Codex needs no separate config
+- [Vendored skill](docs/vendored-skill.md): how the skill is pinned, verified, and bumped
+- [Testing](docs/testing.md): the Pester suite and the OS, harness, and model coverage table
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Bash|(.*(__|-))?(create_pull_request|update_pull_request|add_pr_review_comment|edit_pr_review_comment|reply_to_comment|reply_and_resolve_review_thread)",
-        "hooks": [
-          {
-            "type": "command",
-            "shell": "powershell",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"<plugin path>\\hooks\\gate.ps1\""
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Skill|skill",
-        "hooks": [
-          {
-            "type": "command",
-            "shell": "powershell",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"<plugin path>\\hooks\\gate.ps1\""
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-The plugin's own bash hooks fail to start in that setup. Claude Code reports a non-blocking error for them and the user-level hooks do the gating.
-
-## How the gate works
-
-One script pair holds the matching logic: `hooks/gate.sh` for bash and `hooks/gate.ps1` for Windows PowerShell 5.1 and PowerShell 7. Neither needs `jq`. One hook config serves all three harnesses.
-
-| Key in `hooks/hooks.json` | Read by |
-| --- | --- |
-| `command`, `bash` | Claude Code (`command`), Copilot CLI on Linux and macOS (`bash`), Codex on Linux and macOS (`command`) |
-| `powershell` | Copilot CLI on Windows; the command ends in `; exit $LASTEXITCODE` |
-| `commandWindows` | Codex on Windows |
-
-- The matcher is `Bash|(.*(__|-))?(<tools>)`. MCP tool names arrive prefixed with `__` on Claude Code and `-` on Copilot CLI.
-- Copilot CLI's [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) accepts PascalCase event names (`PreToolUse`) in the Claude Code shape, with Claude matcher semantics and `snake_case` payload fields. That is why one file serves both. Its native `camelCase` flat format (`version: 1`, `preToolUse`) is not used.
-- A deny exits 2, writes the reason to stderr, and prints `permissionDecision` JSON to stdout in both the top-level and `hookSpecificOutput` shapes. Copilot CLI reads stdout, Claude Code and Codex read stderr.
-- Copilot CLI runs the `powershell` field through `pwsh -c`, which reports exit code 1 for any failed native command. The trailing `; exit $LASTEXITCODE` restores exit code 2.
-
-### Skill loaded marker
-
-The gate records the load as an empty file, `<temp dir>/lowly-writing-framework/<session_id>.loaded`. All three harnesses send `session_id` in the hook payload, so the file needs no harness state and works the same under bash and PowerShell.
-
-- Claude Code and Copilot CLI load a skill through a `Skill` or `skill` tool call, which a `PostToolUse` hook records.
-- Codex has no skill tool. The model reads `SKILL.md` through its shell tool, so on Codex the shared `PostToolUse` matcher also covers `Bash`, and the gate records a call that mentions `lowly-writing-framework/SKILL.md`.
-
-## Codex
-
-Codex reads this plugin from the `.claude-plugin/` tree, so there is no separate Codex manifest or hooks file. The [plugin docs](https://developers.openai.com/plugins/build/plugins) say "OpenAI also accepts legacy and Claude-compatible manifests", list `.claude-plugin/marketplace.json` as a legacy-compatible marketplace, and say Codex discovers `hooks/hooks.json` by default when the manifest doesn't define `hooks`. Codex also expands `CLAUDE_PLUGIN_ROOT`, so the Claude Code placeholder works unchanged. The [hooks docs](https://learn.chatgpt.com/docs/hooks) give the `PreToolUse` payload (`session_id`, `tool_name`, `tool_input`, with `tool_input.command` for `Bash`) and the deny signal ("You can also use exit code `2` and write the blocking reason to `stderr`").
-
-The gate is therefore enforced on Codex, subject to the trust review above. No live Codex run exists yet, see the coverage table.
-
-## Vendored skill
-
-`skills/lowly-writing-framework/` is a copy of the upstream skill, unmodified, installed with the `skills` CLI from npm:
-
-```
-npx skills add lowlysre/lowly-writing-framework#v2.3.0 --skill lowly-writing-framework --agent universal --copy
-```
-
-The CLI writes to `.agents/skills/`, so the copy moves to `skills/` afterward. The CLI records the install in `skills-lock.json`, with a `ref` (the tag), a `source`, and a `computedHash` over the skill's contents. The lockfile pins the tag, and `computedHash` changes with any byte of the copy, line endings included. `.gitattributes` marks `skills/**` as `-text` so git keeps the upstream bytes.
-
-CI runs `npx skills experimental_install` against the lockfile in a scratch directory and diffs the result against `skills/`, so a drifted copy fails the build. The `description` in `SKILL.md` is part of that copy, so it stays identical to the pinned release.
-
-`skills/` stays committed, because a plugin installs by cloning this repo and needs the skill in the tree. [mise](https://mise.jdx.dev) pins Node and holds the tag in `mise.toml`. `mise run vendor` re-vendors the skill at that tag and refreshes `skills-lock.json`, and `mise run verify` restores from the lockfile and diffs against `skills/`.
-
-To bump the version, change `skill_ref` in `mise.toml`, run `mise run vendor`, and update `version` in the plugin manifest if the bump should ship.
-
-## Testing
-
-`tests/` holds Pester tests. They run the gate, check the hooks configs against the gate, and run the literal command strings from each config the way the harness runs them.
-
-```
-Invoke-Pester -Path tests -CI
-```
-
-CI runs them on Ubuntu, macOS, and Windows. On Windows the gate runs under Windows PowerShell 5.1.
-
-### Coverage
-
-"CI" means the Pester suite ran the gate and the hooks command strings on that OS. "Live" means a real harness session denied a write, loaded the skill, and passed the retry.
-
-| Harness | Linux | macOS | Windows |
-| --- | --- | --- | --- |
-| Copilot CLI | CI | CI | CI; live once on 1.0.91 with `gpt-5-mini`, against the earlier gate in lowlysre/lowly-writing-framework#30, not this plugin |
-| Claude Code | CI | CI | CI; not live |
-| Codex CLI | CI | CI | CI; not live |
-
-- No live run exists for this plugin on any harness, OS, or model.
-- The Claude Code `shell: powershell` configuration, the `.claude-plugin/marketplace.json` install path, and Claude's handling of the extra `bash` and `powershell` keys are untested.
-- The Codex install through `.claude-plugin/marketplace.json`, its manifest choice, the `CLAUDE_PLUGIN_ROOT` expansion, its handling of the extra `bash` and `powershell` keys, and how `commandWindows` is launched are untested. The docs describe Claude-compatible manifests as accepted without naming `.claude-plugin/plugin.json` explicitly. CI runs the `commandWindows` string through `cmd /c`.
-- `claude plugin validate` passes the manifests and does not validate hooks.
+> [!NOTE]
+> No live harness run exists for this plugin. CI runs the gate and the literal hook commands on Ubuntu, macOS, and Windows. See [coverage](docs/testing.md#coverage).
