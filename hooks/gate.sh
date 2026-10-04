@@ -10,8 +10,11 @@
 # Fails open: anything unparseable exits 0. Keep the matching logic in step with gate.ps1.
 # Parses the JSON payload with sed/grep so it needs no jq.
 
-WRITE_TOOLS='create_pull_request|update_pull_request|add_pr_review_comment|edit_pr_review_comment|reply_to_comment|reply_and_resolve_review_thread'
-GH_WRITE_CMD='\bgh[[:space:]]+(pr|issue|discussion)[[:space:]]+(create|edit|comment|review)\b'
+WRITE_TOOLS='create_pull_request|update_pull_request|add_pr_review_comment|edit_pr_review_comment|reply_to_comment|reply_and_resolve_review_thread|issue_write|add_issue_comment|pull_request_review_write|add_comment_to_pending_review'
+GH_FLAGS='([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*'
+GH_WRITE_CMD="\\bgh$GH_FLAGS[[:space:]]+(pr|issue|discussion)[[:space:]]+(create|edit|comment|review)\\b"
+GH_API_CMD="\\bgh$GH_FLAGS[[:space:]]+api\\b"
+GH_API_WRITE='mutation|(-X|--method)[[:space:]=]*(POST|PATCH|PUT|DELETE)|[[:space:]](-f|-F|--field|--raw-field|--input)([[:space:]=]|$)'
 SKILL='lowly-writing-framework'
 
 input=$(cat)
@@ -24,16 +27,24 @@ payload_matches() { printf '%s' "$input" | grep -Eq "$1"; }
 # A load is a Skill tool call naming the skill, or (Codex has no skill tool) a shell read of its SKILL.md.
 record_load() {
   case "$tool" in
-    Skill|skill) payload_matches "\"skill\"[[:space:]]*:[[:space:]]*\"[^\"]*$SKILL" && : >"$loaded" ;;
-    Bash)        payload_matches "$SKILL[/\\\\]+SKILL\\.md" && : >"$loaded" ;;
+    Skill|skill) payload_matches "\"skill\"[[:space:]]*:[[:space:]]*\"([^\"]*:)?$SKILL\"" && : >"$loaded" ;;
+    Bash)        payload_matches "(^|[^A-Za-z0-9_.-])$SKILL[/\\\\]+SKILL\\.md" && : >"$loaded" ;;
   esac
+}
+
+# A `gh api` call writes when it names a mutating method or a GraphQL mutation, or sends fields (which makes it a POST) to a REST endpoint.
+is_gh_api_write() {
+  payload_matches "$GH_API_CMD" || return 1
+  payload_matches 'graphql' && { payload_matches 'mutation'; return; }
+  payload_matches '(-X|--method)[[:space:]=]*GET' && return 1
+  payload_matches "$GH_API_WRITE"
 }
 
 # True for a GitHub write tool, with or without an MCP prefix (`mcp__server__` on Claude Code, `server-` on Copilot), or a `gh` write command in Bash.
 is_write() {
   local name=${tool##*__}; name=${name##*-}
   case "$name" in
-    Bash) payload_matches "$GH_WRITE_CMD" ;;
+    Bash) payload_matches "$GH_WRITE_CMD" || is_gh_api_write ;;
     *)    [[ "$name" =~ ^($WRITE_TOOLS)$ ]] ;;
   esac
 }

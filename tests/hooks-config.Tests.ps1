@@ -8,7 +8,7 @@ BeforeAll {
     $script:stateDir = Join-Path ([IO.Path]::GetTempPath()) 'lowly-writing-framework'
     $script:psExe = if ($IsWindows -or $PSVersionTable.PSEdition -eq 'Desktop') { 'powershell' } else { 'pwsh' }
     $script:claude = (Get-Content (Join-Path $script:root 'hooks/hooks.json') -Raw | ConvertFrom-Json).hooks
-    $script:writeTools = 'create_pull_request', 'update_pull_request', 'add_pr_review_comment', 'edit_pr_review_comment', 'reply_to_comment', 'reply_and_resolve_review_thread'
+    $script:writeTools = 'create_pull_request', 'update_pull_request', 'add_pr_review_comment', 'edit_pr_review_comment', 'reply_to_comment', 'reply_and_resolve_review_thread', 'issue_write', 'add_issue_comment', 'pull_request_review_write', 'add_comment_to_pending_review'
 
     # The harness substitutes the plugin root textually before it runs the command string.
     function script:Expand($Command) {
@@ -77,7 +77,7 @@ Describe 'matchers' {
     # Copilot anchors a non-literal matcher as ^(?:PATTERN)$ against the tool name.
     It 'PreToolUse matches <tool>' -ForEach @(
         @{ tool = 'Bash' }, @{ tool = 'create_pull_request' }, @{ tool = 'mcp__github__add_pr_review_comment' },
-        @{ tool = 'github-mcp-server-reply_to_comment' }, @{ tool = 'reply_and_resolve_review_thread' }
+        @{ tool = 'github-mcp-server-reply_to_comment' }, @{ tool = 'reply_and_resolve_review_thread', 'issue_write', 'add_issue_comment', 'pull_request_review_write', 'add_comment_to_pending_review' }
     ) {
         $tool | Should -Match "^(?:$($script:claude.PreToolUse[0].matcher))`$"
     }

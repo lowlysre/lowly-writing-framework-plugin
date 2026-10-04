@@ -4,15 +4,15 @@
   <img src="skills/lowly-writing-framework/assets/hero-og.png" alt="lowly-writing-framework" width="480">
 </p>
 
-Bundles the [lowly-writing-framework](https://github.com/lowlysre/lowly-writing-framework) skill and denies GitHub write tools and `gh` write commands until the skill has loaded in the session. Works on Claude Code, Copilot CLI, and Codex CLI from one `.claude-plugin/` tree: Copilot CLI and Codex both accept the Claude Code plugin and hooks format, so there is a single manifest and hooks config.
+Bundles the [lowly-writing-framework](https://github.com/lowlysre/lowly-writing-framework) skill and reminds the agent to load it before a GitHub write: the gate denies the first two write attempts per session until the skill has loaded, then allows later writes. Works on Claude Code, Copilot CLI, and Codex CLI from one `.claude-plugin/` tree: Copilot CLI and Codex both accept the Claude Code plugin and hooks format, so there is a single manifest and hooks config.
 
 | | Skill alone (`npx skills add`) | Plugin (with skill) |
 |---|:---:|:---:|
 | Writing framework skill | ✅ | ✅ |
 | Works on Claude Code, Copilot CLI, Codex CLI | ✅ | ✅ |
 | Agent decides whether to load the skill | ✅ | ✅ |
-| Blocks GitHub writes until the skill loads | ❌ | ✅ |
-| Re-arms the block after context compaction | ❌ | ✅ |
+| Reminds the agent to load the skill before a GitHub write | ❌ | ✅ |
+| Re-arms the reminder after context compaction | ❌ | ✅ |
 
 > [!IMPORTANT]
 > Install the plugin **or** run the skill, not both. Both register the skill, and the agent then sees it twice.

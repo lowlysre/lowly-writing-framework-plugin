@@ -1,6 +1,6 @@
 # How the gate works
 
-The gate blocks GitHub writes until the agent has loaded the `lowly-writing-framework` skill in the session. It runs as three hooks on all three harnesses: Claude Code, Copilot CLI, and Codex CLI.
+The gate reminds the agent to load the `lowly-writing-framework` skill before a GitHub write by denying the first two attempts until it loads. It is a reminder, not enforcement: once both denies have fired, later writes pass. It runs as three hooks on all three harnesses: Claude Code, Copilot CLI, and Codex CLI.
 
 - `PreToolUse` decides whether a write goes through.
 - `PostToolUse` records that the skill loaded.
@@ -10,8 +10,9 @@ One script pair holds the logic: `hooks/gate.sh` for bash and `hooks/gate.ps1` f
 
 ## What it blocks
 
-- The MCP tools `create_pull_request`, `update_pull_request`, `add_pr_review_comment`, `edit_pr_review_comment`, `reply_to_comment`, and `reply_and_resolve_review_thread`.
-- `gh pr|issue|discussion create|edit|comment|review`, run through a shell tool.
+- The MCP tools `create_pull_request`, `update_pull_request`, `add_pr_review_comment`, `edit_pr_review_comment`, `reply_to_comment`, and `reply_and_resolve_review_thread`, plus the GitHub MCP server's `issue_write`, `add_issue_comment`, `pull_request_review_write`, and `add_comment_to_pending_review`.
+- `gh pr|issue|discussion create|edit|comment|review`, run through a shell tool, including global flags before the subcommand such as `gh --repo owner/repo pr create`.
+- Mutating `gh api` calls: an explicit `POST`, `PATCH`, `PUT`, or `DELETE` method, field flags (`-f`, `-F`, `--field`, `--raw-field`, `--input`) on a REST endpoint, and GraphQL calls containing `mutation`.
 
 ## Flow
 

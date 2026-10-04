@@ -13,22 +13,36 @@ Keep the matching logic in step with gate.sh.
 $ErrorActionPreference = 'Stop'
 
 $Skill = 'lowly-writing-framework'
-$WriteTools = '^(create_pull_request|update_pull_request|add_pr_review_comment|edit_pr_review_comment|reply_to_comment|reply_and_resolve_review_thread)$'
-$GhWriteCmd = '\bgh\s+(pr|issue|discussion)\s+(create|edit|comment|review)\b'
+$WriteTools = '^(create_pull_request|update_pull_request|add_pr_review_comment|edit_pr_review_comment|reply_to_comment|reply_and_resolve_review_thread|issue_write|add_issue_comment|pull_request_review_write|add_comment_to_pending_review)$'
+$GhFlags = '(\s+-\S+(\s+[^-\s]\S*)?)*'
+$GhWriteCmd = "\bgh$GhFlags\s+(pr|issue|discussion)\s+(create|edit|comment|review)\b"
+$GhApiCmd = "\bgh$GhFlags\s+api\b"
+$GhApiWrite = 'mutation|(-X|--method)[\s=]*(POST|PATCH|PUT|DELETE)|\s(-f|-F|--field|--raw-field|--input)(\s|=|$)'
 
 # A load is a Skill tool call naming the skill, or (Codex has no skill tool) a shell read of its SKILL.md.
 function Test-SkillLoad($in) {
     switch ($in.tool_name) {
-        { $_ -in 'Skill', 'skill' } { return [string]$in.tool_input.skill -match $Skill }
-        'Bash' { return [string]$in.tool_input.command -match "$Skill[/\\]+SKILL\.md" }
+        { $_ -in 'Skill', 'skill' } { return [string]$in.tool_input.skill -match "^(.*:)?$Skill$" }
+        'Bash' { return [string]$in.tool_input.command -match "(^|[^\w.-])$Skill[/\\]+SKILL\.md" }
         default { return $false }
     }
+}
+
+# A `gh api` call writes when it names a mutating method or a GraphQL mutation, or sends fields (which makes it a POST) to a REST endpoint.
+function Test-GhApiWrite($cmd) {
+    if ($cmd -cnotmatch $GhApiCmd) { return $false }
+    if ($cmd -match 'graphql') { return $cmd -match 'mutation' }
+    if ($cmd -match '(-X|--method)[\s=]*GET') { return $false }
+    return $cmd -match $GhApiWrite
 }
 
 # True for a GitHub write tool, with or without an MCP prefix (`mcp__server__` on Claude Code, `server-` on Copilot), or a `gh` write command in Bash.
 function Test-GitHubWrite($in) {
     $name = $in.tool_name -replace '^.*(__|-)', ''
-    if ($name -eq 'Bash') { return [string]$in.tool_input.command -match $GhWriteCmd }
+    if ($name -eq 'Bash') {
+        $cmd = [string]$in.tool_input.command
+        return ($cmd -match $GhWriteCmd) -or (Test-GhApiWrite $cmd)
+    }
     return $name -match $WriteTools
 }
 

@@ -45,6 +45,32 @@ Describe '<gate>' -ForEach @(@{ gate = 'gate.ps1' }, @{ gate = 'gate.sh' }) {
     It 'denies gh write commands through Bash' {
         Test-Denied (Invoke-Gate $gate (New-Event PreToolUse $script:sid 'Bash' @{ command = 'gh pr create --title t' })) | Should -BeTrue
     }
+    It 'denies gh write commands with global flags before the subcommand' -ForEach @(
+        @{ cmd = 'gh --repo owner/repo pr create --title t' }
+        @{ cmd = 'gh -R owner/repo issue edit 1 --body x' }
+    ) {
+        Test-Denied (Invoke-Gate $gate (New-Event PreToolUse $script:sid 'Bash' @{ command = $cmd })) | Should -BeTrue
+    }
+    It 'denies mutating gh api calls' -ForEach @(
+        @{ cmd = 'gh api repos/o/r/issues/1/comments -f body=x' }
+        @{ cmd = 'gh api -X PATCH repos/o/r/pulls/1 -f title=x' }
+        @{ cmd = 'gh api --method=DELETE repos/o/r/issues/comments/1' }
+        @{ cmd = 'gh api graphql -f query=''mutation { addDiscussionComment(input:{}) { clientMutationId } }''' }
+    ) {
+        Test-Denied (Invoke-Gate $gate (New-Event PreToolUse $script:sid 'Bash' @{ command = $cmd })) | Should -BeTrue
+    }
+    It 'ignores read-only gh api calls' -ForEach @(
+        @{ cmd = 'gh api repos/o/r/pulls/1' }
+        @{ cmd = 'gh api -X GET repos/o/r/issues -f state=open' }
+        @{ cmd = 'gh api graphql -f query=''query { viewer { login } }''' }
+    ) {
+        Test-Denied (Invoke-Gate $gate (New-Event PreToolUse $script:sid 'Bash' @{ command = $cmd })) | Should -BeFalse
+    }
+    It 'matches the issue and review MCP write tools' -ForEach @(
+        @{ tool = 'issue_write' }, @{ tool = 'mcp__github__add_issue_comment' }, @{ tool = 'github-mcp-server-pull_request_review_write' }
+    ) {
+        Test-Denied (Invoke-Gate $gate (New-Event PreToolUse $script:sid $tool @{ body = 'x' })) | Should -BeTrue
+    }
     It 'ignores unrelated Bash commands and tools' {
         Test-Denied (Invoke-Gate $gate (New-Event PreToolUse $script:sid 'Bash' @{ command = 'gh pr view 1' })) | Should -BeFalse
         Test-Denied (Invoke-Gate $gate (New-Event PreToolUse $script:sid 'Edit' @{ file_path = 'a' })) | Should -BeFalse
@@ -67,6 +93,13 @@ Describe '<gate>' -ForEach @(@{ gate = 'gate.ps1' }, @{ gate = 'gate.sh' }) {
     It 'does not count a different skill or file as loaded' {
         (Invoke-Gate $gate (New-Event PostToolUse $script:sid 'Skill' @{ skill = 'other' })).Code | Should -Be 0
         (Invoke-Gate $gate (New-Event PostToolUse $script:sid 'Bash' @{ command = 'cat other/SKILL.md' })).Code | Should -Be 0
+        Test-Denied (Invoke-Gate $gate (New-Event PreToolUse $script:sid 'create_pull_request' @{ title = 't' })) | Should -BeTrue
+    }
+    It 'does not count a look-alike skill name as loaded' -ForEach @(
+        @{ tool = 'Skill'; loadInput = @{ skill = 'not-lowly-writing-framework' } }
+        @{ tool = 'Bash'; loadInput = @{ command = 'cat skills/not-lowly-writing-framework/SKILL.md' } }
+    ) {
+        (Invoke-Gate $gate (New-Event PostToolUse $script:sid $tool $loadInput)).Code | Should -Be 0
         Test-Denied (Invoke-Gate $gate (New-Event PreToolUse $script:sid 'create_pull_request' @{ title = 't' })) | Should -BeTrue
     }
     It 'denies again after PreCompact clears the loaded marker' {

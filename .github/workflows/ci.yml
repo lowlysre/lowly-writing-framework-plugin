@@ -45,3 +45,12 @@ jobs:
         run: |
           npx -y @anthropic-ai/claude-code plugin validate .
           npx -y @anthropic-ai/claude-code plugin validate .claude-plugin/plugin.json
+
+  are-we-good:
+    runs-on: ubuntu-slim
+    needs: [pester, vendored-skill, validate-manifests]
+    if: always()
+    steps:
+      - uses: lowlydba/are-we-good@6b10e5f2697555fbaf7f8f37ce38d4454c954a4c # v1.2.2
+        with:
+          jobs: ${{ toJSON(needs) }}
