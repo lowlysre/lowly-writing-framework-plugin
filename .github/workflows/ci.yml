@@ -1,0 +1,56 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pester:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-slim, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Run Pester
+        shell: pwsh
+        run: |
+          Install-Module Pester -MinimumVersion 5.5 -Scope CurrentUser -Force -SkipPublisherCheck
+          Invoke-Pester -Path tests -CI
+
+  vendored-skill:
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Restore the pinned skill from the lockfile and compare
+        run: |
+          work=$(mktemp -d)
+          cp skills-lock.json "$work/"
+          (cd "$work" && npx -y skills experimental_install)
+          diff -r -x .github -x .gitignore -x AGENTS.md -x assets -x docs -x evals -x package.json -x package-lock.json "$work/.agents/skills/lowly-writing-framework" skills/lowly-writing-framework
+
+  validate-manifests:
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate the marketplace and plugin manifests
+        run: |
+          npx -y @anthropic-ai/claude-code plugin validate .
+          npx -y @anthropic-ai/claude-code plugin validate .claude-plugin/plugin.json
+
+  are-we-good:
+    runs-on: ubuntu-slim
+    needs: [pester, vendored-skill, validate-manifests]
+    if: always()
+    steps:
+      - uses: lowlydba/are-we-good@6b10e5f2697555fbaf7f8f37ce38d4454c954a4c # v1.2.2
+        with:
+          jobs: ${{ toJSON(needs) }}

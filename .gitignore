@@ -1,0 +1,4 @@
+node_modules/
+testResults.xml
+.vendor-tmp/
+.verify-tmp/

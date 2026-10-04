@@ -1,0 +1,8 @@
+{
+  "name": "lowly-writing-framework",
+  "version": "0.2.1",
+  "description": "Bundles the lowly-writing-framework skill and reminds the agent to load it before GitHub writes",
+  "author": { "name": "lowlysre" },
+  "repository": "https://github.com/lowlysre/lowly-writing-framework-plugin",
+  "license": "MIT"
+}
