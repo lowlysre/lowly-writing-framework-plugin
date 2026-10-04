@@ -1,8 +1,66 @@
 # How the gate works
 
-The gate covers `create_pull_request`, `update_pull_request`, `add_pr_review_comment`, `edit_pr_review_comment`, `reply_to_comment`, and `reply_and_resolve_review_thread`, plus `gh pr|issue|discussion create|edit|comment|review` run through a shell tool. It denies up to twice: a soft deny that exits 0, then a hard deny that exits 2 if the agent retries without loading the skill. After that it allows the write. A compaction re-arms the deny. An internal failure in the gate exits 0, so a broken gate never blocks work.
+The gate blocks GitHub writes until the agent has loaded the `lowly-writing-framework` skill in the session. It runs as three hooks on all three harnesses: Claude Code, Copilot CLI, and Codex CLI.
 
-One script pair holds the matching logic: `hooks/gate.sh` for bash and `hooks/gate.ps1` for Windows PowerShell 5.1 and PowerShell 7. Neither needs `jq`. 
+- `PreToolUse` decides whether a write goes through.
+- `PostToolUse` records that the skill loaded.
+- `PreCompact` re-arms the gate, because compaction can drop the skill text from context.
+
+One script pair holds the logic: `hooks/gate.sh` for bash and `hooks/gate.ps1` for Windows PowerShell 5.1 and PowerShell 7. Neither needs `jq`. An internal failure exits 0, so a broken gate never blocks work.
+
+## What it blocks
+
+- The MCP tools `create_pull_request`, `update_pull_request`, `add_pr_review_comment`, `edit_pr_review_comment`, `reply_to_comment`, and `reply_and_resolve_review_thread`.
+- `gh pr|issue|discussion create|edit|comment|review`, run through a shell tool.
+
+## Flow
+
+```mermaid
+%%{init: {"theme": "dark", "flowchart": {"padding": 14}, "themeVariables": {"fontSize": "14px", "mainBkg": "#21262d", "nodeBorder": "#4493f8"}}}%%
+flowchart TD
+    classDef default rx:8,ry:8,stroke-width:0.75px
+
+    PC["PreCompact"] --> CLR["Delete .loaded, .soft, .nudged"]
+
+    PO["PostToolUse"] --> LOAD{"Skill tool call or SKILL.md read?"}
+    LOAD -- yes --> MARK["Create .loaded"]
+    LOAD -- no --> NOP["Do nothing"]
+
+    PR["PreToolUse"] --> W{"GitHub write?"}
+    W -- no --> ALLOW["Allow"]
+    W -- yes --> L{"Has .loaded or .nudged?"}
+    L -- yes --> ALLOW
+    L -- no --> S{"Has .soft?"}
+    S -- no --> SOFT["Create .soft<br/>Soft deny: exit 0 with decision JSON"]
+    S -- yes --> HARD["Create .nudged<br/>Hard deny: exit 2 with decision JSON"]
+```
+
+The markers are empty files at `<temp dir>/lowly-writing-framework/<session_id>.<marker>`:
+
+| Marker | Meaning |
+| --- | --- |
+| `.loaded` | The skill loaded. Writes pass until the next compaction. |
+| `.soft` | The first deny fired. |
+| `.nudged` | The second deny fired. Writes pass until the next compaction. |
+
+All three harnesses send `session_id` in the hook payload, so the files need no harness state and work the same under bash and PowerShell.
+
+## Why two denies
+
+Every deny prints `permissionDecision` JSON to stdout in both the top-level and `hookSpecificOutput` shapes, and writes the reason to stderr. Copilot CLI reads the top-level fields, and Claude Code and Codex read the `hookSpecificOutput` form.
+
+The first deny exits 0. Copilot CLI treats any non-zero `preToolUse` exit as a crash and ignores stdout, so a first deny with exit 2 would hide the reason.
+
+If the agent retries without loading the skill, the second deny exits 2. That is the backstop for a harness that ignored the exit-0 decision and ran the write anyway. The next write after that passes.
+
+## Detecting a skill load
+
+- Claude Code and Copilot CLI load a skill through a `Skill` or `skill` tool call, which `PostToolUse` records.
+- Codex has no skill tool. The model reads `SKILL.md` through its shell, so the shared `PostToolUse` matcher also covers `Bash`, and the gate records a call that mentions `lowly-writing-framework/SKILL.md`.
+
+## Compaction
+
+`PreCompact` deletes all three markers. The next write is denied again and the agent reloads the skill. If the harness keeps the skill through compaction, the cost is extra reminders. Claude Code, Copilot CLI, and Codex each document a pre-compaction event.
 
 ## Compatibility
 
@@ -16,19 +74,10 @@ The only additions to the Claude shape are per-OS command keys, so one `hooks/ho
 | Key in `hooks/hooks.json` | Read by |
 | --- | --- |
 | `command`, `bash` | Claude Code (`command`), Copilot CLI on Linux and macOS (`bash`), Codex on Linux and macOS (`command`) |
-| `powershell` | Copilot CLI on Windows; the command ends in `; exit $LASTEXITCODE` |
+| `powershell` | Copilot CLI on Windows |
 | `commandWindows` | Codex on Windows |
 
-- The matcher is `Bash|(.*(__|-))?(<tools>)`. MCP tool names arrive prefixed with `__` on Claude Code and `-` on Copilot CLI.
-- Every deny prints `permissionDecision` JSON to stdout in both the top-level and `hookSpecificOutput` shapes and writes the reason to stderr. Copilot CLI reads stdout, Claude Code and Codex read the `hookSpecificOutput` form.
-- The first deny exits 0, because Copilot CLI treats any non-zero `preToolUse` exit as a crash and ignores stdout, so the reason would not show. If the agent retries without loading the skill, the second deny exits 2 as a backstop for a harness that ignored the exit-0 decision. A `.soft` marker records the first deny and a `.nudged` marker the second.
+Two details of the config:
+
+- The `PreToolUse` matcher is `Bash|(.*(__|-))?(<tools>)`. MCP tool names arrive prefixed with `__` on Claude Code and `-` on Copilot CLI.
 - Copilot CLI runs the `powershell` field through `pwsh -c`, which reports exit code 1 for any failed native command. The trailing `; exit $LASTEXITCODE` restores the hard deny's exit code 2.
-
-## Skill loaded marker
-
-The gate records the load as an empty file, `<temp dir>/lowly-writing-framework/<session_id>.loaded`. All three harnesses send `session_id` in the hook payload, so the file needs no harness state and works the same under bash and PowerShell.
-
-- Claude Code and Copilot CLI load a skill through a `Skill` or `skill` tool call, which a `PostToolUse` hook records.
-- Codex has no skill tool. The model reads `SKILL.md` through its shell tool, so on Codex the shared `PostToolUse` matcher also covers `Bash`, and the gate records a call that mentions `lowly-writing-framework/SKILL.md`.
-
-A `PreCompact` hook deletes the session's markers, including the `.soft` and `.nudged` files that limit the deny to two per compaction cycle. Compaction can drop the skill text from the model's context, so the next write is denied again and the agent reloads the skill. If the harness keeps the skill through compaction, the cost is extra reminders. Claude Code, Copilot CLI, and Codex each document a pre-compaction event.
