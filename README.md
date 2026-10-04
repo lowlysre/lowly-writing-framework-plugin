@@ -71,6 +71,7 @@ One script pair holds the matching logic: `hooks/gate.sh` for bash and `hooks/ga
 | `hooks/codex-hooks.json` | Codex CLI | `command` and `commandWindows`; referenced from `.codex-plugin/plugin.json` |
 
 - The matcher is `Bash|(.*(__|-))?(<tools>)`. MCP tool names arrive prefixed with `__` on Claude Code and `-` on Copilot CLI.
+- Copilot CLI's [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) accepts PascalCase event names (`PreToolUse`) in the Claude Code shape, with Claude matcher semantics and `snake_case` payload fields. That is why one file serves both. Its native `camelCase` flat format (`version: 1`, `preToolUse`) is not used.
 - A deny exits 2, writes the reason to stderr, and prints `permissionDecision` JSON to stdout in both the top-level and `hookSpecificOutput` shapes. Copilot CLI reads stdout, Claude Code and Codex read stderr.
 - Copilot CLI runs the `powershell` field through `pwsh -c`, which reports exit code 1 for any failed native command. The trailing `; exit $LASTEXITCODE` restores exit code 2.
 
