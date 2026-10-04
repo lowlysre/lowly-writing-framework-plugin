@@ -15,11 +15,11 @@ Bundles the [lowly-writing-framework](https://github.com/lowlysre/lowly-writing-
 | Re-arms the block after context compaction | ❌ | ✅ |
 
 > [!IMPORTANT]
-> Install the plugin **or** run the skill`, not both. Both register the skill, and the agent then sees it twice.
+> Install the plugin **or** run the skill, not both. Both register the skill, and the agent then sees it twice.
 
 ## Install
 
-### Claude Code* / Copilot CLI
+### Claude Code / Copilot CLI
 
 ```
 /plugin marketplace add lowlysre/lowly-writing-framework-plugin
