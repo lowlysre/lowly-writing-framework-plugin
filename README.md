@@ -42,6 +42,19 @@ Codex skips plugin hooks until you trust them in `/hooks`.
 
 To bump, change `skill_ref` in `mise.toml`, run `mise run vendor`, and bump the plugin `version` if it should ship. `mise run verify` runs the CI check locally.
 
+## Coverage
+
+CI runs the gate scripts and the literal `hooks.json` commands on Ubuntu, macOS, and Windows, but no CI job installs a harness or calls a model. Live runs are manual.
+
+| OS | Harness | Model | Live status |
+| --- | --- | --- | --- |
+| Windows | Copilot desktop app | Claude Sonnet 5.5 | ✅ Soft deny, hard deny, allow after a load, and `PreCompact` re-arming observed |
+| Windows | Claude Code | none | ❌ Not run, the CLI was not logged in |
+| Windows | Codex CLI | none | ❌ Not run |
+| macOS | Any | none | ❌ Not run, covered by CI only |
+| Linux | Any | none | ❌ Not run, covered by CI only |
+
+The Copilot row is the only live evidence. [Testing](docs/testing.md) lists the untested paths.
 ## Docs
 
 - [How the gate works](docs/how-the-gate-works.md): what it denies, the hook config, why Codex needs no separate config, the skill-loaded marker

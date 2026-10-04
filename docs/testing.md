@@ -24,6 +24,8 @@ Two more CI jobs sit beside the Pester matrix:
 
 ## Known gaps
 
+The README's Coverage table lists which OS, harness, and model combinations ran live.
+
 CI exercises the gate and the hook command strings, not a harness install. These paths are untested:
 
 - The Claude Code `shell: powershell` configuration, the `.claude-plugin/marketplace.json` install path, and Claude's handling of the extra `bash` and `powershell` keys are untested.
