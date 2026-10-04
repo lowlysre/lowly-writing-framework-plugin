@@ -94,7 +94,7 @@ Describe 'matchers' {
     }
     It 'lists the same write tools as both gates' {
         $inMatcher = ([regex]::Match($script:claude.PreToolUse[0].matcher, '\((create_pull_request[^)]*)\)').Groups[1].Value -split '\|') | Sort-Object
-        $inSh = ([regex]::Match((Get-Content (Join-Path $script:root 'hooks/gate.sh') -Raw), '(create_pull_request[^)]*)\)').Groups[1].Value -split '\|') | Sort-Object
+        $inSh = ([regex]::Match((Get-Content (Join-Path $script:root 'hooks/gate.sh') -Raw), 'WRITE_TOOLS=''(create_pull_request[^'']*)''').Groups[1].Value -split '\|') | Sort-Object
         $inPs = ([regex]::Match((Get-Content (Join-Path $script:root 'hooks/gate.ps1') -Raw), '\^\((create_pull_request[^)]*)\)\$').Groups[1].Value -split '\|') | Sort-Object
         $inMatcher | Should -Be ($script:writeTools | Sort-Object)
         $inSh | Should -Be $inMatcher
