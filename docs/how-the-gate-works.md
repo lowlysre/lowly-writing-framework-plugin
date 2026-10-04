@@ -1,6 +1,6 @@
 # How the gate works
 
-The gate covers `create_pull_request`, `update_pull_request`, `add_pr_review_comment`, `edit_pr_review_comment`, `reply_to_comment`, and `reply_and_resolve_review_thread`, plus `gh pr|issue|discussion create|edit|comment|review` run through a shell tool. It denies once per session with exit code 2, then allows the retry. An internal failure in the gate exits 0, so a broken gate never blocks work.
+The gate covers `create_pull_request`, `update_pull_request`, `add_pr_review_comment`, `edit_pr_review_comment`, `reply_to_comment`, and `reply_and_resolve_review_thread`, plus `gh pr|issue|discussion create|edit|comment|review` run through a shell tool. It denies once with exit code 2, then allows the retry. A compaction re-arms the deny. An internal failure in the gate exits 0, so a broken gate never blocks work.
 
 One script pair holds the matching logic: `hooks/gate.sh` for bash and `hooks/gate.ps1` for Windows PowerShell 5.1 and PowerShell 7. Neither needs `jq`. 
 
@@ -30,4 +30,4 @@ The gate records the load as an empty file, `<temp dir>/lowly-writing-framework/
 - Claude Code and Copilot CLI load a skill through a `Skill` or `skill` tool call, which a `PostToolUse` hook records.
 - Codex has no skill tool. The model reads `SKILL.md` through its shell tool, so on Codex the shared `PostToolUse` matcher also covers `Bash`, and the gate records a call that mentions `lowly-writing-framework/SKILL.md`.
 
-A PreCompact hook deletes the session's markers, including the .nudged file that limits the deny to once per session. Compaction can drop the skill text from the model's context, so the next write is denied again and the agent reloads the skill. If the harness keeps the skill through compaction, the cost is one extra reminder. Claude Code, Copilot CLI, and Codex each document a pre-compaction event.
+A `PreCompact` hook deletes the session's markers, including the `.nudged` file that limits the deny to one per compaction cycle. Compaction can drop the skill text from the model's context, so the next write is denied again and the agent reloads the skill. If the harness keeps the skill through compaction, the cost is one extra reminder. Claude Code, Copilot CLI, and Codex each document a pre-compaction event.

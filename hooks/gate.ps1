@@ -5,7 +5,7 @@ Runs on Windows PowerShell 5.1 and PowerShell 7.
 .DESCRIPTION
 PreCompact: clears both markers so the next write is denied again and the skill reloads.
 PostToolUse: records that the skill loaded this session, via the Skill tool or a read of its SKILL.md.
-PreToolUse on GitHub write tools and `gh` write commands: denies once if the skill hasn't loaded.
+PreToolUse on GitHub write tools and `gh` write commands: denies once per compaction cycle if the skill hasn't loaded.
 Fails open: any internal error prints a warning to stderr and exits 0.
 Keep the matching logic in step with gate.sh.
 #>
@@ -45,7 +45,7 @@ try {
 
     if (-not (Test-Path $loaded) -and -not (Test-Path $nudged)) {
         New-Item -Force $nudged | Out-Null
-        $msg = 'Load the lowly-writing-framework skill before writing this artifact, then retry. This reminder fires once per session.'
+        $msg = 'Load the lowly-writing-framework skill before writing this artifact, then retry. This reminder fires once, and again after each context compaction.'
         $decision = [ordered]@{ permissionDecision = 'deny'; permissionDecisionReason = $msg }
         $decision.hookSpecificOutput = [ordered]@{ hookEventName = 'PreToolUse'; permissionDecision = 'deny'; permissionDecisionReason = $msg }
         # Copilot reads the top-level fields from stdout, Codex and Claude Code the hookSpecificOutput form; Claude Code and Codex also read stderr on exit 2.

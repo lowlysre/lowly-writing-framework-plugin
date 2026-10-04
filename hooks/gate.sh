@@ -2,7 +2,7 @@
 # Hook gate for lowly-writing-framework on Claude Code, Copilot CLI, and Codex CLI (bash twin of gate.ps1).
 # PreCompact: clears both markers so the next write is denied again and the skill reloads.
 # PostToolUse: records that the skill loaded this session, via the Skill tool or a read of its SKILL.md.
-# PreToolUse on GitHub write tools and `gh` write commands: denies once if the skill hasn't loaded.
+# PreToolUse on GitHub write tools and `gh` write commands: denies once per compaction cycle if the skill hasn't loaded.
 # Fails open: anything unparseable exits 0. Keep the matching logic in step with gate.ps1.
 # Parses the JSON payload with sed/grep so it needs no jq.
 
@@ -45,7 +45,7 @@ esac
 
 if [ ! -e "$loaded" ] && [ ! -e "$nudged" ]; then
   : >"$nudged"
-  msg='Load the lowly-writing-framework skill before writing this artifact, then retry. This reminder fires once per session.'
+  msg='Load the lowly-writing-framework skill before writing this artifact, then retry. This reminder fires once, and again after each context compaction.'
   # Copilot reads the top-level fields from stdout, Codex and Claude Code the hookSpecificOutput form; Claude Code and Codex also read stderr on exit 2.
   printf '{"permissionDecision":"deny","permissionDecisionReason":"%s","hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$msg" "$msg"
   echo "$msg" >&2
