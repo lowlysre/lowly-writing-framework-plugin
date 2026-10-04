@@ -29,5 +29,5 @@ CI exercises the gate and the hook command strings, not a harness install. These
 - The Codex install through `.claude-plugin/marketplace.json`, its manifest choice, the `CLAUDE_PLUGIN_ROOT` expansion, its handling of the extra `bash` and `powershell` keys, and how `commandWindows` is launched are untested. The docs describe Claude-compatible manifests as accepted without naming `.claude-plugin/plugin.json` explicitly. CI runs the `commandWindows` string through `cmd /c`.
 - `claude plugin validate` passes the manifests and does not validate hooks.
 - A harness that ignores the exit 0 JSON lets the first write through. The exit 2 on the retry is the backstop.
-- Whether any harness fires `PreCompact` with `hook_event_name` set to `PreCompact` is untested. Copilot's `preCompact` is notification-only, so it may not finish before the next tool call.
+- `PreCompact` re-arming is confirmed live on Copilot only: after a compaction the session's `.soft` and `.nudged` markers were gone. Claude Code and Codex are untested, and Copilot's `preCompact` is notification-only, so it may not finish before the next tool call.
 - Skill-load detection on Claude Code and Codex is untested.
