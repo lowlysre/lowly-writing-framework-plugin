@@ -62,6 +62,20 @@ Describe '<gate>' -ForEach @(@{ gate = 'gate.ps1' }, @{ gate = 'gate.sh' }) {
         (Invoke-Gate $gate (New-Event PostToolUse $script:sid 'Bash' @{ command = 'cat other/SKILL.md' })).Code | Should -Be 0
         (Invoke-Gate $gate (New-Event PreToolUse $script:sid 'create_pull_request' @{ title = 't' })).Code | Should -Be 2
     }
+    It 'denies again after PreCompact clears the loaded marker' {
+        $w = New-Event PreToolUse $script:sid 'create_pull_request' @{ title = 't' }
+        (Invoke-Gate $gate (New-Event PostToolUse $script:sid 'Skill' @{ skill = 'lowly-writing-framework' })).Code | Should -Be 0
+        (Invoke-Gate $gate $w).Code | Should -Be 0
+        (Invoke-Gate $gate (New-Event PreCompact $script:sid $null $null)).Code | Should -Be 0
+        (Invoke-Gate $gate $w).Code | Should -Be 2
+    }
+    It 'denies again after PreCompact clears the nudged marker' {
+        $w = New-Event PreToolUse $script:sid 'create_pull_request' @{ title = 't' }
+        (Invoke-Gate $gate $w).Code | Should -Be 2
+        (Invoke-Gate $gate $w).Code | Should -Be 0
+        (Invoke-Gate $gate (New-Event PreCompact $script:sid $null $null)).Code | Should -Be 0
+        (Invoke-Gate $gate $w).Code | Should -Be 2
+    }
     It 'fails open on unparseable input' {
         $path = Join-Path $script:root "hooks/$gate"
         $out = if ($gate -like '*.sh') { 'not json' | & bash $path 2>&1 } else { 'not json' | & $script:psExe -NoProfile -File $path 2>&1 }

@@ -29,3 +29,5 @@ The gate records the load as an empty file, `<temp dir>/lowly-writing-framework/
 
 - Claude Code and Copilot CLI load a skill through a `Skill` or `skill` tool call, which a `PostToolUse` hook records.
 - Codex has no skill tool. The model reads `SKILL.md` through its shell tool, so on Codex the shared `PostToolUse` matcher also covers `Bash`, and the gate records a call that mentions `lowly-writing-framework/SKILL.md`.
+
+A PreCompact hook deletes the session's markers, including the .nudged file that limits the deny to once per session. Compaction can drop the skill text from the model's context, so the next write is denied again and the agent reloads the skill. If the harness keeps the skill through compaction, the cost is one extra reminder. Claude Code, Copilot CLI, and Codex each document a pre-compaction event.

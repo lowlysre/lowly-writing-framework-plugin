@@ -52,6 +52,9 @@ Describe 'hooks configs' {
         $e.hooks[0].type | Should -Be 'command'
         $e.hooks[0].command | Should -Match 'gate\.sh'
     }
+    It 'declares a PreCompact hook for the gate script' {
+        $script:claude.PreCompact[0].hooks[0].command | Should -Match 'gate\.sh'
+    }
     It 'references scripts that exist' {
         foreach ($rel in 'hooks/gate.sh', 'hooks/gate.ps1') {
             Test-Path (Join-Path $script:root $rel) | Should -BeTrue -Because $rel

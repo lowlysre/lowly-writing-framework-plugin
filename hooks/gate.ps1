@@ -3,6 +3,7 @@
 Hook gate for lowly-writing-framework on Claude Code, Copilot CLI, and Codex CLI (PowerShell twin of gate.sh).
 Runs on Windows PowerShell 5.1 and PowerShell 7.
 .DESCRIPTION
+PreCompact: clears both markers so the next write is denied again and the skill reloads.
 PostToolUse: records that the skill loaded this session, via the Skill tool or a read of its SKILL.md.
 PreToolUse on GitHub write tools and `gh` write commands: denies once if the skill hasn't loaded.
 Fails open: any internal error prints a warning to stderr and exits 0.
@@ -18,6 +19,11 @@ try {
     New-Item -ItemType Directory -Force $stateDir | Out-Null
     $loaded = Join-Path $stateDir "$session.loaded"
     $nudged = Join-Path $stateDir "$session.nudged"
+
+    if ($in.hook_event_name -eq 'PreCompact') {
+        Remove-Item $loaded, $nudged -ErrorAction SilentlyContinue
+        exit 0
+    }
 
     if ($in.hook_event_name -eq 'PostToolUse') {
         if ($in.tool_name -eq 'Skill' -or $in.tool_name -eq 'skill') {

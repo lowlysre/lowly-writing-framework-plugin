@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Hook gate for lowly-writing-framework on Claude Code, Copilot CLI, and Codex CLI (bash twin of gate.ps1).
+# PreCompact: clears both markers so the next write is denied again and the skill reloads.
 # PostToolUse: records that the skill loaded this session, via the Skill tool or a read of its SKILL.md.
 # PreToolUse on GitHub write tools and `gh` write commands: denies once if the skill hasn't loaded.
 # Fails open: anything unparseable exits 0. Keep the matching logic in step with gate.ps1.
@@ -17,6 +18,11 @@ state_dir="${TMPDIR:-/tmp}/lowly-writing-framework"
 mkdir -p "$state_dir" 2>/dev/null || exit 0
 loaded="$state_dir/$session.loaded"
 nudged="$state_dir/$session.nudged"
+
+if [ "$event" = "PreCompact" ]; then
+  rm -f "$loaded" "$nudged"
+  exit 0
+fi
 
 if [ "$event" = "PostToolUse" ]; then
   case "$tool" in
