@@ -15,7 +15,7 @@ Bundles the [lowly-writing-framework](https://github.com/lowlysre/lowly-writing-
 | Re-arms the block after context compaction | ❌ | ✅ |
 
 > [!IMPORTANT]
-> Install the plugin or run `npx skills add lowlysre/lowly-writing-framework`, not both. Both register the skill, and the agent then sees it twice.
+> Install the plugin **or** run the skill`, not both. Both register the skill, and the agent then sees it twice.
 
 ## Install
 
