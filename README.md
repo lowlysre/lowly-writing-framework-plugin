@@ -20,7 +20,7 @@ Codex CLI:
 codex plugin marketplace add lowlysre/lowly-writing-framework-plugin
 ```
 
-Codex skips plugin hooks until you trust them in `/hooks`. Claude Code without Git for Windows needs `shell: powershell`, see [Claude Code on Windows](docs/claude-code-windows.md).
+Codex skips plugin hooks until you trust them in `/hooks`. Claude Code without Git for Windows can't run the bash hooks. Copy [examples/claude-code-windows-settings.json](examples/claude-code-windows-settings.json) into your user settings and replace `<plugin path>` with the installed plugin directory.
 
 ## Vendored skill
 
