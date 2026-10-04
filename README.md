@@ -31,7 +31,4 @@ To bump, change `skill_ref` in `mise.toml`, run `mise run vendor`, and bump the 
 ## Docs
 
 - [How the gate works](docs/how-the-gate-works.md): what it denies, the hook config, why Codex needs no separate config, the skill-loaded marker
-- [Testing](docs/testing.md): the Pester suite and the OS, harness, and model coverage table
-
-> [!NOTE]
-> No live harness run exists for this plugin. CI runs the gate and the literal hook commands on Ubuntu, macOS, and Windows. See [coverage](docs/testing.md#coverage).
+- [Testing](docs/testing.md): the Pester suite and known gaps
