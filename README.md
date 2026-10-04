@@ -1,6 +1,8 @@
 # lowly-writing-framework-plugin
 
-<img src="skills/lowly-writing-framework/assets/hero-og.png" alt="lowly-writing-framework" width="480">
+<p align="center">
+  <img src="skills/lowly-writing-framework/assets/hero-og.png" alt="lowly-writing-framework" width="480">
+</p>
 
 Bundles the [lowly-writing-framework](https://github.com/lowlysre/lowly-writing-framework) skill and denies GitHub write tools and `gh` write commands until the skill has loaded in the session. Works on Claude Code, Copilot CLI, and Codex CLI from one `.claude-plugin/` tree: Copilot CLI and Codex both accept the Claude Code plugin and hooks format, so there is a single manifest and hooks config.
 
