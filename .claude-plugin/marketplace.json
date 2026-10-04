@@ -1,0 +1,12 @@
+{
+  "name": "lowly-writing-framework",
+  "owner": { "name": "lowlysre" },
+  "metadata": { "description": "The lowly-writing-framework skill with an activation gate for GitHub writes" },
+  "plugins": [
+    {
+      "name": "lowly-writing-framework",
+      "source": "./",
+      "description": "Denies GitHub write tools until the lowly-writing-framework skill has loaded"
+    }
+  ]
+}

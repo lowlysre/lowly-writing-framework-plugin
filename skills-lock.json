@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "skills": {
+    "lowly-writing-framework": {
+      "source": "lowlysre/lowly-writing-framework",
+      "ref": "v2.3.0",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "9aa331d45d58c1afdd282f62650d675d19a4de85968f8c79b526ef5a09b35008"
+    }
+  }
+}
