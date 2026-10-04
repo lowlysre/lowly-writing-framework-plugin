@@ -1,7 +1,7 @@
 # lowly-writing-framework-plugin
 
 <p align="center">
-  <img src="skills/lowly-writing-framework/assets/hero-og.png" alt="lowly-writing-framework" width="480">
+  <img src="assets/hero-og.png" alt="lowly-writing-framework" width="480">
 </p>
 
 Bundles the [lowly-writing-framework](https://github.com/lowlysre/lowly-writing-framework) skill and reminds the agent to load it before a GitHub write: the gate denies the first two write attempts per session until the skill has loaded, then allows later writes. Works on Claude Code, Copilot CLI, and Codex CLI from one `.claude-plugin/` tree: Copilot CLI and Codex both accept the Claude Code plugin and hooks format, so there is a single manifest and hooks config.
