@@ -1,6 +1,6 @@
 {
   "name": "lowly-writing-framework",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bundles the lowly-writing-framework skill and denies GitHub write tools until it has loaded",
   "author": { "name": "lowlysre" },
   "repository": "https://github.com/lowlysre/lowly-writing-framework-plugin",
