@@ -3,7 +3,9 @@
 #
 # PreCompact:  clears the session markers so the next write is denied again and the skill reloads.
 # PostToolUse: records that the skill loaded, via the Skill tool or a read of its SKILL.md.
-# PreToolUse:  on GitHub write tools and `gh` write commands, denies once per compaction cycle if the skill hasn't loaded.
+# PreToolUse:  on GitHub write tools and `gh` write commands, denies up to twice per compaction cycle if the skill hasn't loaded:
+#
+#              first a soft deny (exit 0 plus decision JSON, so every harness shows the reason), then a hard deny (exit 2) if the model retries without loading it.
 #
 # Fails open: anything unparseable exits 0. Keep the matching logic in step with gate.ps1.
 # Parses the JSON payload with sed/grep so it needs no jq.
@@ -36,13 +38,12 @@ is_write() {
   esac
 }
 
+# Prints the deny decision. Copilot reads the top-level fields from stdout, Codex and Claude Code the hookSpecificOutput form.
+# Exit 0 carries the reason on every harness; Copilot ignores stdout on a non-zero exit, so the hard deny only adds the exit 2 backstop.
 deny() {
-  local msg="Load the $SKILL skill before writing this artifact, then retry. This reminder fires once, and again after each context compaction."
-  : >"$nudged"
-  # Copilot reads the top-level fields from stdout, Codex and Claude Code the hookSpecificOutput form; Claude Code and Codex also read stderr on exit 2.
+  local msg="Load the $SKILL skill before writing this artifact, then retry. This reminder fires twice, and again after each context compaction."
   printf '{"permissionDecision":"deny","permissionDecisionReason":"%s","hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$msg" "$msg"
   echo "$msg" >&2
-  exit 2
 }
 
 event=$(field hook_event_name)
@@ -53,13 +54,22 @@ session=$(field session_id | tr -c 'A-Za-z0-9_-' '_')
 state_dir="${TMPDIR:-/tmp}/$SKILL"
 mkdir -p "$state_dir" 2>/dev/null || exit 0
 loaded="$state_dir/$session.loaded"
+soft="$state_dir/$session.soft"
 nudged="$state_dir/$session.nudged"
 
 case "$event" in
-  PreCompact)  rm -f "$loaded" "$nudged"; exit 0 ;;
+  PreCompact)  rm -f "$loaded" "$soft" "$nudged"; exit 0 ;;
   PostToolUse) record_load; exit 0 ;;
 esac
 
 is_write || exit 0
-[ -e "$loaded" ] || [ -e "$nudged" ] || deny
+[ -e "$loaded" ] || [ -e "$nudged" ] && exit 0
+
+if [ -e "$soft" ]; then
+  : >"$nudged"
+  deny
+  exit 2
+fi
+: >"$soft"
+deny
 exit 0

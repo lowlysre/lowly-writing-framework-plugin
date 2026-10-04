@@ -65,7 +65,7 @@ Describe 'hooks configs' {
         foreach ($f in 'command', 'bash', 'powershell', 'commandWindows') { $h.$f | Should -Match '\$\{CLAUDE_PLUGIN_ROOT\}' }
     }
     It 'forwards the gate exit code from the powershell command' {
-        # Copilot runs this through `pwsh -c`, which reports 1 for any failed native command and would lose exit code 2.
+        # Copilot runs this through `pwsh -c`, which reports 1 for any failed native command and would lose the hard deny's exit code 2.
         $script:claude.PreToolUse[0].hooks[0].powershell | Should -Match 'exit \$LASTEXITCODE\s*$'
     }
     It 'marks gate.sh executable in git' -Skip:(-not (Get-Command git -ErrorAction SilentlyContinue)) {
@@ -106,16 +106,16 @@ Describe 'hook commands as the harness runs them' {
     BeforeEach { $script:sid = "p-$([guid]::NewGuid())" }
     AfterEach { Remove-Item (Join-Path $script:stateDir "$($script:sid).*") -ErrorAction SilentlyContinue }
 
-    It 'runs the <name> command: deny, then allow after the skill loads' -ForEach @(
-        @{ name = 'claude command'; pre = { $script:claude.PreToolUse[0].hooks[0].command }; post = { $script:claude.PostToolUse[0].hooks[0].command }; tool = 'skill'; input = @{ skill = 'lowly-writing-framework' } }
-        @{ name = 'claude bash'; pre = { $script:claude.PreToolUse[0].hooks[0].bash }; post = { $script:claude.PostToolUse[0].hooks[0].bash }; tool = 'skill'; input = @{ skill = 'lowly-writing-framework' } }
-        @{ name = 'codex file read'; pre = { $script:claude.PreToolUse[0].hooks[0].command }; post = { $script:claude.PostToolUse[0].hooks[0].command }; tool = 'Bash'; input = @{ command = 'cat skills/lowly-writing-framework/SKILL.md' } }
+    It 'runs the <name> command: soft deny, then allow after the skill loads' -ForEach @(
+        @{ name = 'claude command'; pre = { $script:claude.PreToolUse[0].hooks[0].command }; post = { $script:claude.PostToolUse[0].hooks[0].command }; tool = 'skill'; loadInput = @{ skill = 'lowly-writing-framework' } }
+        @{ name = 'claude bash'; pre = { $script:claude.PreToolUse[0].hooks[0].bash }; post = { $script:claude.PostToolUse[0].hooks[0].bash }; tool = 'skill'; loadInput = @{ skill = 'lowly-writing-framework' } }
+        @{ name = 'codex file read'; pre = { $script:claude.PreToolUse[0].hooks[0].command }; post = { $script:claude.PostToolUse[0].hooks[0].command }; tool = 'Bash'; loadInput = @{ command = 'cat skills/lowly-writing-framework/SKILL.md' } }
     ) -Skip:(-not $script:hasBash) {
         $cmd = & $pre
         $deny = Invoke-Hook 'bash' $cmd (New-Pre $script:sid 'Bash' @{ command = 'gh pr create --title t' })
-        $deny.Code | Should -Be 2
+        $deny.Code | Should -Be 0
         $deny.Output | Should -Match 'Load the lowly-writing-framework skill'
-        $load = @{ hook_event_name = 'PostToolUse'; session_id = $script:sid; tool_name = $tool; tool_input = $input }
+        $load = @{ hook_event_name = 'PostToolUse'; session_id = $script:sid; tool_name = $tool; tool_input = $loadInput }
         (Invoke-Hook 'bash' (& $post) $load).Code | Should -Be 0
         (Invoke-Hook 'bash' $cmd (New-Pre $script:sid 'Bash' @{ command = 'gh pr create --title t' })).Code | Should -Be 0
     }
@@ -124,9 +124,11 @@ Describe 'hook commands as the harness runs them' {
         @{ name = 'codex commandWindows'; shell = 'cmd'; cmd = { $script:claude.PreToolUse[0].hooks[0].commandWindows } }
     ) -Skip:(-not $script:isWin) {
         $c = & $cmd
-        $deny = Invoke-Hook $shell $c (New-Pre $script:sid 'Bash' @{ command = 'gh pr create --title t' })
-        $deny.Code | Should -Be 2
-        $deny.Output | Should -Match 'permissionDecision'
+        $write = New-Pre $script:sid 'Bash' @{ command = 'gh pr create --title t' }
+        $soft = Invoke-Hook $shell $c $write
+        $soft.Code | Should -Be 0
+        $soft.Output | Should -Match 'permissionDecision'
+        (Invoke-Hook $shell $c $write).Code | Should -Be 2
         (Invoke-Hook $shell $c (New-Pre $script:sid 'Bash' @{ command = 'gh pr view 1' })).Code | Should -Be 0
     }
 }

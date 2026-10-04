@@ -5,7 +5,8 @@ Runs on Windows PowerShell 5.1 and PowerShell 7.
 .DESCRIPTION
 PreCompact:  clears the session markers so the next write is denied again and the skill reloads.
 PostToolUse: records that the skill loaded, via the Skill tool or a read of its SKILL.md.
-PreToolUse:  on GitHub write tools and `gh` write commands, denies once per compaction cycle if the skill hasn't loaded.
+PreToolUse:  on GitHub write tools and `gh` write commands, denies up to twice per compaction cycle if the skill hasn't loaded:
+first a soft deny (exit 0 plus decision JSON, so every harness shows the reason), then a hard deny (exit 2) if the model retries without loading it.
 Fails open: any internal error prints a warning to stderr and exits 0.
 Keep the matching logic in step with gate.sh.
 #>
@@ -32,10 +33,11 @@ function Test-GitHubWrite($in) {
 }
 
 function Write-Deny {
-    $msg = "Load the $Skill skill before writing this artifact, then retry. This reminder fires once, and again after each context compaction."
+    $msg = "Load the $Skill skill before writing this artifact, then retry. This reminder fires twice, and again after each context compaction."
     $decision = [ordered]@{ permissionDecision = 'deny'; permissionDecisionReason = $msg }
     $decision.hookSpecificOutput = [ordered]@{ hookEventName = 'PreToolUse'; permissionDecision = 'deny'; permissionDecisionReason = $msg }
-    # Copilot reads the top-level fields from stdout, Codex and Claude Code the hookSpecificOutput form; Claude Code and Codex also read stderr on exit 2.
+    # Copilot reads the top-level fields from stdout, Codex and Claude Code the hookSpecificOutput form.
+    # Copilot ignores stdout on a non-zero exit, so the caller exits 0 first and exits 2 only as the backstop.
     [Console]::Out.WriteLine(($decision | ConvertTo-Json -Compress -Depth 3))
     [Console]::Error.WriteLine($msg)
 }
@@ -48,11 +50,12 @@ try {
     $stateDir = Join-Path ([IO.Path]::GetTempPath()) $Skill
     New-Item -ItemType Directory -Force $stateDir | Out-Null
     $loaded = Join-Path $stateDir "$session.loaded"
+    $soft = Join-Path $stateDir "$session.soft"
     $nudged = Join-Path $stateDir "$session.nudged"
 
     switch ($in.hook_event_name) {
         'PreCompact' {
-            Remove-Item $loaded, $nudged -ErrorAction SilentlyContinue
+            Remove-Item $loaded, $soft, $nudged -ErrorAction SilentlyContinue
             exit 0
         }
         'PostToolUse' {
@@ -63,11 +66,14 @@ try {
 
     if (-not (Test-GitHubWrite $in)) { exit 0 }
 
-    if (-not (Test-Path $loaded) -and -not (Test-Path $nudged)) {
+    if ((Test-Path $loaded) -or (Test-Path $nudged)) { exit 0 }
+
+    Write-Deny
+    if (Test-Path $soft) {
         New-Item -Force $nudged | Out-Null
-        Write-Deny
         exit 2
     }
+    New-Item -Force $soft | Out-Null
     exit 0
 }
 catch {
