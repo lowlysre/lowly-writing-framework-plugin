@@ -13,7 +13,7 @@ GIT_CONFIG_GLOBAL=/dev/null npx --yes skills add lowlysre/lowly-writing-framewor
 cd ..
 rm -rf skills/lowly-writing-framework && mkdir -p skills
 mv .vendor-tmp/.agents/skills/lowly-writing-framework skills/
-rm -rf skills/lowly-writing-framework/.github skills/lowly-writing-framework/package.json skills/lowly-writing-framework/package-lock.json
+rm -rf skills/lowly-writing-framework/.github skills/lowly-writing-framework/assets skills/lowly-writing-framework/docs skills/lowly-writing-framework/evals skills/lowly-writing-framework/package.json skills/lowly-writing-framework/package-lock.json
 mv .vendor-tmp/skills-lock.json skills-lock.json
 rm -rf .vendor-tmp
 '''
@@ -24,6 +24,6 @@ shell = "bash -c"
 run = '''
 rm -rf .verify-tmp && mkdir .verify-tmp && cp skills-lock.json .verify-tmp/
 (cd .verify-tmp && npx --yes skills experimental_install)
-diff -r -x .github -x package.json -x package-lock.json .verify-tmp/.agents/skills/lowly-writing-framework skills/lowly-writing-framework
+diff -r -x .github -x assets -x docs -x evals -x package.json -x package-lock.json .verify-tmp/.agents/skills/lowly-writing-framework skills/lowly-writing-framework
 rm -rf .verify-tmp
 '''

@@ -34,7 +34,7 @@ jobs:
           work=$(mktemp -d)
           cp skills-lock.json "$work/"
           (cd "$work" && npx -y skills experimental_install)
-          diff -r -x .github -x package.json -x package-lock.json "$work/.agents/skills/lowly-writing-framework" skills/lowly-writing-framework
+          diff -r -x .github -x assets -x docs -x evals -x package.json -x package-lock.json "$work/.agents/skills/lowly-writing-framework" skills/lowly-writing-framework
 
   validate-manifests:
     runs-on: ubuntu-slim
