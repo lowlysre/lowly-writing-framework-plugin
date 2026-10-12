@@ -13,7 +13,7 @@ Keep the matching logic in step with gate.sh.
 $ErrorActionPreference = 'Stop'
 
 $Skill = 'lowly-writing-framework'
-$WriteTools = '^(create_pull_request|update_pull_request|add_pr_review_comment|edit_pr_review_comment|reply_to_comment|reply_and_resolve_review_thread|issue_write|add_issue_comment|pull_request_review_write|add_comment_to_pending_review)$'
+$WriteTools = '^(create_pull_request|update_pull_request|add_pr_review_comment|edit_pr_review_comment|reply_to_comment|reply_to_review_thread|reply_and_resolve_review_thread|issue_write|add_issue_comment|pull_request_review_write|add_comment_to_pending_review)$'
 $GhFlags = '(\s+-\S+(\s+[^-\s]\S*)?)*'
 $GhWriteCmd = "\bgh$GhFlags\s+(pr|issue|discussion)\s+(create|edit|comment|review)\b"
 $GhApiCmd = "\bgh$GhFlags\s+api\b"

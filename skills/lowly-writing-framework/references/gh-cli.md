@@ -6,6 +6,16 @@ Loaded from `SKILL.md` whenever posting or editing a PR title/body, PR/issue com
 
 Before editing an existing PR title/body, issue body, or any other live GitHub text, always fetch the current text first (`gh pr view <n> --json title,body`, `gh issue view <n> --json body`, `gh discussion view <n> --json title,body`), never edit from an earlier draft still sitting in the conversation. The user may have hand-tweaked it since, and writing from a stale copy silently reverts their edits. Apply the adjustment to the fetched text, preserving everything not being changed.
 
+## Looking up a person's name
+
+When the user refers to a person by anything other than their GitHub username (a first name, a full name, an email, or a handle from another system), for example "tag Dana" or "reply to Sam", resolve who they mean before writing the name or an @mention into a body or comment. Don't guess a username or a surname.
+
+- Name for a known username: `gh api users/<login> --jq '.name // .login'`. `name` is null when the profile has none, so fall back to the login
+- Username for a name or email: `gh api -X GET search/users -f q='<first last> in:fullname' --jq '.items[:5][].login'`, or `-f q='<email> in:email'`, which only matches public emails. Then confirm each candidate with the call above
+- Narrow an ambiguous name to the repo's people: `gh api repos/{owner}/{repo}/contributors --paginate --jq '.[].login'`, or the item's own people: `gh pr view <n> --json author,reviews,assignees` for a PR, `gh issue view <n> --json author,assignees,comments` for an issue (issues have no `reviews` field; check which one the number is first)
+- Commit authors carry a real name even when the profile doesn't: `git log --format='%an <%ae>' | sort -u`
+- Several matches or none: say so and ask, never pick one. Credit by name in prose and `@username` only when a notification is wanted
+
 ## Writing text safely
 
 Never inline markdown as a shell string. Each shell's escaping (backtick, `$`, caret) mangles a body unpredictably the moment it contains backticks, code fences, or `$` references. Write the body to a temp file instead and pass `--body-file <path>` (`gh pr comment`, `gh pr edit`, `gh issue comment`, `gh discussion create`/`edit`/`comment`) or `-F body=@path` (`gh api`), then delete the temp file.
@@ -14,17 +24,19 @@ Never inline markdown as a shell string. Each shell's escaping (backtick, `$`, c
 
 ## Gating the post on length
 
-Don't eyeball the length ceiling from `references/self-check.md` right before a `gh` call, measure the temp file and branch on the result, so an over-length body never reaches the API in the first place:
+Don't eyeball the length ceiling from `references/self-check.md` right before a `gh` call, measure the temp file and branch on the result, so an over-length body never reaches the API in the first place. The ceiling defaults to 3,000 characters; a user can override it by setting the `LOWLY_WRITING_BODY_LENGTH_CEILING` environment variable:
 
 ```powershell
+$max = if ($env:LOWLY_WRITING_BODY_LENGTH_CEILING) { [int]$env:LOWLY_WRITING_BODY_LENGTH_CEILING } else { 3000 }
 $len = (Get-Content -Raw body.md).Length
-if ($len -gt 3500) { throw "body.md is $len chars, over the 3,500 ceiling; restructure per body-writing.md before posting" }
+if ($len -gt $max) { throw "body.md is $len chars, over the $max ceiling; restructure per body-writing.md before posting" }
 gh pr edit <n> --body-file body.md
 ```
 
 ```bash
+max=${LOWLY_WRITING_BODY_LENGTH_CEILING:-3000}
 len=$(wc -c < body.md)
-[ "$len" -gt 3500 ] && { echo "body.md is $len chars, over the 3,500 ceiling; restructure per body-writing.md before posting" >&2; exit 1; }
+[ "$len" -gt "$max" ] && { echo "body.md is $len chars, over the $max ceiling; restructure per body-writing.md before posting" >&2; exit 1; }
 gh pr edit <n> --body-file body.md
 ```
 
@@ -52,8 +64,44 @@ gh api repos/{owner}/{repo}/pulls/<n>/comments \
 - Add `-F start_line=40 -f start_side=RIGHT` to anchor a multi-line range; `line` is then the last line of the range
 - `line` is a line number in the file at `commit_id`, not a position in the diff, and it has to be a line the PR touches or its surrounding context, or the API returns `422`
 - Use the PR's current head SHA, not an older one: a stale `commit_id` anchors the suggestion to lines that may have moved, and it lands outdated
-- To batch several comments into one notification, create a pending review first (`POST .../pulls/<n>/reviews` with `comments[]`, no `event`) and submit it once, instead of one call per comment
+- To batch several reviewer comments on someone else's PR into one notification, create a pending review first (`POST .../pulls/<n>/reviews` with `comments[]`, no `event`) and submit it once, instead of one call per comment. Not for the PR author's own annotations, see `Author annotations` below
 - Verify with `gh api repos/{owner}/{repo}/pulls/comments/<id> --jq .body`, per `Verifying what landed`
+
+## Author annotations
+
+When the current user authored the PR (`gh api user -q .login` equals `gh pr view <n> --json author -q .author.login`), post each annotation from `references/pr-writing.md` as a standalone line comment with the same `gh api .../pulls/<n>/comments` call as `Suggested edits` above, one call per annotation, `-F body=@path`, current head SHA. Each posts immediately as its own single-comment review; nothing is left pending. Don't use `add_pr_review_comment` here, it stages into a pending review.
+
+- Anchor a note about a block on the whole range: add `-F start_line=<first> -f start_side=RIGHT` and set `line` to the last line, so the UI highlights everything the note covers. A single line above the block is hard to connect to it
+- Only lines in the diff can carry a comment, and a range has to stay inside one hunk. A deleted block has no right-side lines: anchor on the deleted lines with `-f side=LEFT -f start_side=LEFT`, using their line numbers in the base file. If the API returns `422`, fall back to the adjacent context line with `side=RIGHT` and word the note "the block below" or "the block above"
+- Keep each target as plain variables, and cast the line to `[int]` before the call. In PowerShell, `-F line=$item[1]` inside a native command doesn't index the array, it expands the whole array followed by a literal `[1]`:
+
+```powershell
+foreach ($a in $annotations) {
+  $path = $a.Path
+  [int]$line = $a.Line
+  [int]$start = $a.StartLine
+  $bodyArg = "body=@$($a.File)"
+  gh api repos/<owner>/<repo>/pulls/<n>/comments -F $bodyArg -f commit_id=$sha -f path=$path -F start_line=$start -f start_side=RIGHT -F line=$line -f side=RIGHT
+}
+```
+
+- Verify each with `gh api repos/{owner}/{repo}/pulls/comments/<id> --jq .body`, per `Verifying what landed`
+
+## Replying to review threads
+
+For the PR author answering reviewer comments, per `references/review-replies.md`. Replies, resolving, and reactions each need a different call.
+
+- List unresolved threads with the thread ID (`PRRT_...`) and the first comment's `databaseId`. Past 100 threads, page with `pageInfo.endCursor`:
+
+```bash
+gh api graphql -f query='query($o:String!,$r:String!,$n:Int!){repository(owner:$o,name:$r){pullRequest(number:$n){reviewThreads(first:100){pageInfo{hasNextPage endCursor} nodes{id isResolved isOutdated path line comments(first:50){nodes{databaseId author{login} body}}}}}}}' -f o=<owner> -f r=<repo> -F n=<pr-number> --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not)'
+```
+
+- Reply with `gh api repos/{owner}/{repo}/pulls/<n>/comments/<root-id>/replies -F body=@reply.md`. `<root-id>` is the thread's first comment; the API rejects the ID of a reply. The `-f` trap from `Writing text safely` applies
+- Resolve with `gh api graphql -f query='mutation($id:ID!){resolveReviewThread(input:{threadId:$id}){thread{isResolved}}}' -f id=<PRRT_id>`. A reply doesn't resolve its thread, and resolving doesn't post a reply, so a Done reply is two calls
+- React instead of replying to a `praise:` comment: `gh api repos/{owner}/{repo}/pulls/comments/<id>/reactions -f content='+1'`
+- Re-request review with `gh api repos/{owner}/{repo}/pulls/<n>/requested_reviewers -f 'reviewers[]=<login>'`, one `-f` per reviewer
+- Verify each reply with `gh api repos/{owner}/{repo}/pulls/comments/<id> --jq .body`, per `Verifying what landed`, and confirm the thread state by re-running the list query
 
 ## Discussions
 
