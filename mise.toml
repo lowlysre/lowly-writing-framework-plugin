@@ -9,7 +9,7 @@ description = "Re-vendor the skill at skill_ref into skills/ and refresh skills-
 shell = "bash -c"
 run = '''
 rm -rf .vendor-tmp && mkdir .vendor-tmp && cd .vendor-tmp
-GIT_CONFIG_GLOBAL=/dev/null npx --yes skills add lowlysre/lowly-writing-framework#{{vars.skill_ref}} --skill lowly-writing-framework --agent universal --copy
+GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 npx --yes skills add lowlysre/lowly-writing-framework#{{vars.skill_ref}} --skill lowly-writing-framework --agent universal --copy
 cd ..
 rm -rf skills/lowly-writing-framework && mkdir -p skills
 mv .vendor-tmp/.agents/skills/lowly-writing-framework skills/
@@ -22,7 +22,7 @@ description = "Restore from skills-lock.json in a scratch dir and diff against s
 shell = "bash -c"
 run = '''
 rm -rf .verify-tmp && mkdir .verify-tmp && cp skills-lock.json .verify-tmp/
-(cd .verify-tmp && npx --yes skills experimental_install)
+(cd .verify-tmp && GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 npx --yes skills experimental_install)
 diff -r .verify-tmp/.agents/skills/lowly-writing-framework skills/lowly-writing-framework
 rm -rf .verify-tmp
 '''
