@@ -10,7 +10,7 @@
 # Fails open: anything unparseable exits 0. Keep the matching logic in step with gate.ps1.
 # Parses the JSON payload with sed/grep so it needs no jq.
 
-WRITE_TOOLS='create_pull_request|update_pull_request|add_pr_review_comment|edit_pr_review_comment|reply_to_comment|reply_and_resolve_review_thread|issue_write|add_issue_comment|pull_request_review_write|add_comment_to_pending_review'
+WRITE_TOOLS='create_pull_request|update_pull_request|add_pr_review_comment|edit_pr_review_comment|reply_to_comment|reply_to_review_thread|reply_and_resolve_review_thread|issue_write|add_issue_comment|pull_request_review_write|add_comment_to_pending_review'
 GH_FLAGS='([[:space:]]+-[^[:space:]]+([[:space:]]+[^-[:space:]][^[:space:]]*)?)*'
 GH_WRITE_CMD="\\bgh$GH_FLAGS[[:space:]]+(pr|issue|discussion)[[:space:]]+(create|edit|comment|review)\\b"
 GH_API_CMD="\\bgh$GH_FLAGS[[:space:]]+api\\b"

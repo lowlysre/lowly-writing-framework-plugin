@@ -12,6 +12,7 @@ Several "before" halves trip the mechanical checks in `references/self-check.md`
   - Issue references and scope notes
   - One point per sentence
   - Roll-call bullets
+  - Backticks on names
   - Summary that restates the diff
 - Bodies: `references/body-writing.md` rules
   - Anticipated reviewer question
@@ -22,6 +23,9 @@ Several "before" halves trip the mechanical checks in `references/self-check.md`
   - Body repeats a doc the PR adds
 - PR Testing section (`references/pr-writing.md`)
   - Manual steps around the merge
+- PR author annotations (`references/pr-writing.md`)
+  - Line-anchored aside out of the body
+  - Annotating a block with a range
 - Meat proxy mode (`references/meat-proxy-mode.md`)
   - Prose ask into executable steps
 
@@ -110,6 +114,36 @@ All five service handlers move to the new client. The refunds handler also retri
 ```
 
 The four identical bullets collapse into a count. The one bullet that differed is the only one still named, because it's the only one a reviewer needs to look at separately.
+
+</example>
+
+<example>
+
+### Backticks on names
+
+Shows the backtick rules in `SKILL.md` Formatting: tick literal text the reader would copy, not the names of repos, apps, or roles, and not every repeat.
+
+Before:
+
+```markdown
+Lets `acme-worker` read the `acme-bot` app's key through the `ci-secrets-reader` role, so its new `release.yml` can create releases. A `GITHUB_TOKEN`-created release doesn't fire `release: published`, which `publish.yml` there triggers on.
+The change is one entry in `reader_repos` in `oidc.tf`.
+
+- [x] `acme-bot` is installed on `acme-worker`.
+- Merge acme/acme-worker#101 after this applies, so its first `release.yml` run can assume the role.
+```
+
+After:
+
+```markdown
+Lets acme-worker read the acme-bot app's key through the ci-secrets-reader role, so its new release workflow can create releases. A release created with `GITHUB_TOKEN` doesn't fire `release: published`, which the publish workflow there triggers on.
+The change is one entry in `reader_repos` in `oidc.tf`.
+
+- [x] acme-bot is installed on acme-worker.
+- Merge acme/acme-worker#101 after this applies, so its first release run can assume the role.
+```
+
+The repo, app, and role names lost their ticks because nobody types them into a terminal. `GITHUB_TOKEN`, the `release: published` event, `reader_repos`, and `oidc.tf` keep theirs: they're literal text the reader has to match or open. The repeated `release.yml` went plain once the prose named the workflow instead.
 
 </example>
 
@@ -320,6 +354,76 @@ Closes acme/sdk#88.
 ```
 
 The backoff, budget, and circuit details live in the doc once. The warning stays in the body because risk is never trimmed, even if the doc mentions it.
+
+</example>
+
+</examples>
+
+## PR author annotations: `references/pr-writing.md` rules
+
+<examples>
+
+<example>
+
+### Line-anchored aside out of the body
+
+Shows `Author annotations` in `references/pr-writing.md`: an aside about specific lines becomes a comment on those lines, and the body stays on the primary change.
+
+Before (PR body):
+
+```markdown
+## Summary
+Bumps the client timeout to 30s because large exports were cut off at 5s.
+
+### Bonus
+- Reordered the imports in `client.py` so the linter stops flagging them
+- The `retries` value in `settings.yaml` is a placeholder until the backend team publishes real limits
+```
+
+After (PR body):
+
+```markdown
+## Summary
+Bumps the client timeout to 30s because large exports were cut off at 5s.
+```
+
+After (comment on the `retries` line in `settings.yaml`):
+
+```markdown
+note: Placeholder until the backend team publishes real limits.
+<!--:robot:-->
+```
+
+After (comment on the first changed import in `client.py`):
+
+```markdown
+note: Import reorder only, so the linter stops flagging this file.
+<!--:robot:-->
+```
+
+Each aside is still on the record, and a reviewer reading either line finds it there. The timeout fix is the only thing the body asks them to weigh.
+
+</example>
+
+<example>
+
+### Annotating a block with a range
+
+Shows the anchoring bullet in `references/pr-writing.md`: a note about a block covers the whole block, so the UI highlights what it explains, and a deleted block anchors on its deleted lines.
+
+Before (single comment on the line above the block, so the UI highlights none of it):
+
+```markdown
+note: The block below is the unused Batch/Bedrock path, removed here because nothing calls it.
+<!--:robot:-->
+```
+
+After (range comment, `start_line=40`, `line=88`, `side=LEFT`, `start_side=LEFT`, on the deleted lines in `jobs/run.py`):
+
+```markdown
+note: Unused Batch/Bedrock path, removed because nothing calls it.
+<!--:robot:-->
+```
 
 </example>
 
