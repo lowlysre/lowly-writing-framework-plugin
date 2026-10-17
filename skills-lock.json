@@ -3,10 +3,10 @@
   "skills": {
     "lowly-writing-framework": {
       "source": "lowlysre/lowly-writing-framework",
-      "ref": "v4.0.0",
+      "ref": "v4.3.0",
       "sourceType": "github",
       "skillPath": "skills/lowly-writing-framework/SKILL.md",
-      "computedHash": "541063bfbd087b032c0bfb5c4e97b053d1245cb2fe286e08155d3b97dd8e4412"
+      "computedHash": "12af57f67b33bddc47ac48b6af74615ecb03785245cdf267e21f87dc6a902f62"
     }
   }
 }

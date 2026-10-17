@@ -2,7 +2,7 @@
 node = "22"
 
 [vars]
-skill_ref = "v4.0.0"
+skill_ref = "v4.3.0"
 
 [tasks.vendor]
 description = "Re-vendor the skill at skill_ref into skills/ and refresh skills-lock.json"
